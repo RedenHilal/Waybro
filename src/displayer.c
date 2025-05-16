@@ -16,20 +16,6 @@ static void * (*handler_group[DATA_COUNT])(void*data) = {
     handle_mpd
 };
 
-// Array of fetcher function, started on different thread
-// might change it later as it create too many epoll
-
-static void * fetcher_pointer[DATA_COUNT] = {
-    sysclick_get,
-    workspace_get,
-    time_get,
-    brightness_get,
-    volume_get,
-    bluetooth_get,
-    network_get,
-    power_get,
-    mpd_get
-};
 
 static pthread_mutex_t mutex[DATA_COUNT];
 

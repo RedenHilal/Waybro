@@ -7,7 +7,6 @@ set(CMAKE_BUILD_TYPE Debug)
 
 include_directories(include)
 
-# Add executable
 add_executable(mypanel 
     src/displayer.c
     src/fetcher.c
