@@ -1,0 +1,44 @@
+
+
+enum {
+    CORE_M_HELLO = 1,
+    CORE_M_SYNC,
+    CORE_M_PONG,
+    CORE_M_ERR,
+    CORE_M_GETREG,
+    CORE_M_CREATEOBJ,
+    CORE_M_DESTROY
+};
+
+enum {
+    CORE_E_INFO,
+    CORE_E_DONE,
+    CORE_E_PING,
+    CORE_E_ERR,
+    CORE_E_REMOVEID,
+    CORE_E_BOUNDID,
+    CORE_E_ADDMEM,
+    CORE_E_REMOVEMEM,
+    CORE_E_BOUNDPROPS
+};
+
+enum {
+    REG_M_BIND = 1,
+    REG_M_DESTROY
+};
+
+enum {
+    REG_E_GLOBAL,
+    REG_E_GLOBALREMOVE
+};
+
+enum {
+    DEV_M_SUBPARAM = 1,
+    DEV_M_ENUMPARAM,
+    DEV_M_SETPARAM
+};
+
+enum {
+    DEV_E_INFO,
+    DEV_E_PARAM
+};
