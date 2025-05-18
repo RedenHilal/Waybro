@@ -23,7 +23,7 @@ static pthread_mutex_t mutex[DATA_COUNT];
 static int setepoll(int pipe,struct AppState* appstate){
     struct epoll_event event,wlevent;
     event.data.fd = pipe;
-    event.events = EPOLLIN | EPOLLET;
+    event.events = EPOLLIN;
     int epfd = epoll_create1(IN_CLOEXEC);
 
     if (epfd < 0)
@@ -45,7 +45,6 @@ static void mutex_init (pthread_mutex_t * mutexes){
 }
 
 int main(){
-    setlocale(LC_ALL, "");
     struct AppState appstate = {0};
    
     appstate.width = 1920;
@@ -56,10 +55,8 @@ int main(){
     pthread_t threadID;
     Event dump[MAKS_EVENT];
     
-    if (pipe(pipes) != 0) {
-        perror("pipe");
-        exit(1);
-    }
+    if (pipe(pipes) != 0) 
+        ON_ERR("Pipe - main")
     
     Thread_struct param = {pipes[1],&appstate, mutex};
     

@@ -15,7 +15,7 @@ static void * (*fds_handler[])(void * data) = {
 static int set_epoll(int * fds, struct fd_object *object){
     int epfd = epoll_create1(IN_CLOEXEC);
     struct epoll_event event;
-    event.events = EPOLLIN ;
+    event.events = EPOLLIN | EPOLLET;
     for(int i = 0;i<fd_count;i++){
         if (fds[i] < 0) {
             printf("Error: Invalid fd %d\n", fds[i]);
@@ -67,6 +67,7 @@ void *mainpoll(void * data){
         bluetooth_fd, net_fd, power_fd,mpd_fd, ac_fd
     };
     
+    resources_init(param->appState);
     set_handler(fds, fd_handler_object,param);
     power_ac_init(fd_handler_object,power_file,ac_file);
     

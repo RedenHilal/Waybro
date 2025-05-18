@@ -1,5 +1,48 @@
 #include "../include/fetcher.h"
 
+cairo_surface_t * resources;
+
+static void erase_rect_area(struct AppState* appstate, int x,int y,int width, int height){
+    cairo_save(appstate->cai_context);
+    cairo_set_operator(appstate->cai_context, CAIRO_OPERATOR_CLEAR);
+    cairo_rectangle(appstate->cai_context, x, y, width, height);
+    cairo_fill(appstate->cai_context);
+    cairo_restore(appstate->cai_context);
+}
+
+static void expose_rect_area(struct AppState * appstate,int x,int y, int width, int height){
+    wl_surface_attach(appstate->surface,appstate->buffer,0,0);
+    wl_surface_damage(appstate->surface, x,  y, width, height);
+    wl_surface_commit(appstate->surface);
+}
+
+static void render_text(struct AppState * appstate, int x, int y, int fontsize, char* string){
+    //cairo_select_font_face(appstate->cai_context, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    cairo_set_font_size(appstate->cai_context,fontsize);
+    cairo_set_source_rgba(appstate->cai_context, 1, 1, 1, ALPHA);
+    cairo_move_to(appstate->cai_context, x, y);
+    cairo_show_text(appstate->cai_context, string);
+}
+
+void resources_init(void * data){
+    struct AppState * appstate = data;
+    resources = cairo_image_surface_create_from_png("../build/resources/battery-mid-svgrepo-com.png");
+    if(cairo_surface_status(resources) != CAIRO_STATUS_SUCCESS)
+        ON_ERR("load resources - handler")
+
+    cairo_save(appstate->cai_context);
+    int img_width = cairo_image_surface_get_width(resources);
+    int img_height = cairo_image_surface_get_height(resources);
+
+    cairo_translate(appstate->cai_context, 1800, 0);
+    cairo_scale(appstate->cai_context, (double)appstate->height/img_width, (double)appstate->height/img_height);
+    cairo_set_source_rgba(appstate->cai_context, 1, 1, 1, ALPHA);
+    cairo_mask_surface(appstate->cai_context, resources, 0, 0);
+
+    cairo_restore(appstate->cai_context);
+
+    expose_rect_area(appstate, 1800, 0, 30, appstate->height);
+}
 
 void * handle_sysclick(void * data){
     Event event = *(Event *) data;
@@ -17,7 +60,9 @@ void * handle_workspace(void * data){
     int workspaces[available_workspace];
 
     int count = 0;
-    int * workspaces_bits = workspace_data + 2; 
+    int * workspaces_bits = workspace_data + 2;
+
+    // Read workspaces info from fetcher
     for(int i = 1;count < available_workspace;i++){
         if(workspaces_bits[i / INT_BITS] & (1 << (i % INT_BITS))){
             workspaces[count] = i;
@@ -40,14 +85,16 @@ void * handle_workspace(void * data){
             break;
     }
 
+    erase_rect_area(appState, 0, 0, 200, appState->height);
+
     cairo_set_source_rgba(appState->cai_context, 1.0, 105.0/255.0, 196.0/255.0, ALPHA);
     cairo_rectangle(appState->cai_context,0,0,200,appState->height);
     cairo_fill(appState->cai_context);
 
-    if(available_workspace > 5) available_workspace = 5;
+    if(available_workspace > 6) available_workspace = 6;
     
     for(int i = 0;i < available_workspace;i++){
-        
+
         if(workspaces[i] == active_workspace){
             cairo_set_source_rgba(appState->cai_context, 1.0, 155.0/255.0, 166.0/255.0, ALPHA);
             cairo_rectangle(appState->cai_context,i*40,0,40,appState->height);
@@ -59,12 +106,9 @@ void * handle_workspace(void * data){
         cairo_set_line_width(appState->cai_context, 8.0);
         cairo_stroke(appState->cai_context);
 
-        
     }
 
-    wl_surface_attach(appState->surface,appState->buffer,0,0);
-    wl_surface_damage(appState->surface, 0,  0, 200, appState->height);
-    wl_surface_commit(appState->surface);
+    expose_rect_area(appState, 0, 0, 200, appState->height);
 
     return NULL;
 }
@@ -78,18 +122,15 @@ void * handle_time(void * data){
     snprintf(clock_now, 9, "%0.2d:%0.2d", minutes/60,minutes%60);
     printf("Event Triggered %d | Time -> %0.2d:%0.2d\n", event.type,event.value/60,event.value%60);
 
+    erase_rect_area(appstate, 920, 0, 200, appstate->height);
+
     cairo_set_source_rgba(appstate->cai_context, 1, 105.0/255.0, 196.0/255.0, ALPHA);
     cairo_rectangle(appstate->cai_context,  920, 0, 200, appstate->height);
     cairo_fill(appstate->cai_context);
 
-    cairo_set_source_rgba(appstate->cai_context, 1, 1, 1, ALPHA);
-    cairo_move_to(appstate->cai_context, 920, appstate->height - 5);
-    cairo_show_text(appstate->cai_context, clock_now);
+    render_text(appstate, 920, appstate->height-5, appstate->height, clock_now);
 
-    wl_surface_attach(appstate->surface,appstate->buffer,0,0);
-    wl_surface_damage(appstate->surface, 920,  0, 200, appstate->height);
-    wl_surface_commit(appstate->surface);
-
+    expose_rect_area(appstate, 920, 0, 200, appstate->height);
 
     return NULL;
 }
@@ -124,6 +165,9 @@ void * handle_network(void * data){
 
 void * handle_power(void * data){
     Event event = *(Event *) data;
+    struct AppState * appstate = event.appState;
+    char power[6];
+
     switch (event.specifier) {
         case BATTERY_STATUS:
             printf("Event Triggered %d | Power Status: %d\n", event.type,event.value); 
@@ -132,6 +176,21 @@ void * handle_power(void * data){
             printf("Event Triggered %d | Charge Status: %d\n", event.type,event.value);  
             break;
     }
+
+    if(event.specifier == CHARGE_STATUS) return NULL;
+
+    snprintf(power, 5, "%d%%", event.value);
+
+    erase_rect_area(appstate, 1830, 0, 90, appstate->height);
+
+    cairo_set_source_rgba(appstate->cai_context, 1, 105.0/255.0, 196.0/255.0, ALPHA);
+    cairo_rectangle(appstate->cai_context,  1830, 0, 90, appstate->height);
+    cairo_fill(appstate->cai_context);
+
+    render_text(appstate, 1830, appstate->height - 8, appstate->height-10, power);
+
+    expose_rect_area(appstate, 1830, 0, 90, appstate->height);
+
     return NULL;
 }
 
@@ -155,19 +214,26 @@ void * handle_mpd(void * data){
     }
 
     if(event.specifier != MPD_SENT) return NULL;
+
+    erase_rect_area(appstate, 250, 0, 600, appstate->height);
+
     cairo_set_source_rgba(appstate->cai_context, 1, 105.0/255.0, 196.0/255.0, ALPHA);
     cairo_rectangle(appstate->cai_context,  250, 0, 600, appstate->height);
     cairo_fill(appstate->cai_context);
 
-    cairo_set_font_size(appstate->cai_context,appstate->height-10);
-    cairo_set_source_rgba(appstate->cai_context, 1, 1, 1, ALPHA);
-    cairo_move_to(appstate->cai_context, 250, appstate->height - 10);
-    cairo_show_text(appstate->cai_context, event.data);
-    cairo_set_font_size(appstate->cai_context,appstate->height);
+    PangoLayout * layout = pango_cairo_create_layout(appstate->cai_context);
 
-    wl_surface_attach(appstate->surface,appstate->buffer,0,0);
-    wl_surface_damage(appstate->surface, 250,  0, 600, appstate->height);
-    wl_surface_commit(appstate->surface);
+	pango_layout_set_text(layout, event.data, -1);
+	pango_layout_set_font_description(layout, pango_font_description_from_string("Sans 17"));
+
+	cairo_set_source_rgba(appstate->cai_context, 1, 1, 1, ALPHA);
+	cairo_move_to(appstate->cai_context, 250, 0);
+    
+	pango_cairo_show_layout(appstate->cai_context, layout);
+
+    expose_rect_area(appstate, 250, 0, 600, appstate->height);
+
+	g_object_unref(layout);
 
     return NULL;
 }

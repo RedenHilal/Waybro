@@ -22,12 +22,13 @@
 #include <signal.h>
 #include <errno.h>
 #include <assert.h>
-#include <locale.h>
 
 #include <sys/stat.h>
 #include <sys/mman.h>
 
 #include <cairo/cairo.h>
+#include <pango/pango.h>
+#include <pango/pangocairo.h>
 
 #include <wayland-client.h>
 #include "wlr-layer-shell.h"
@@ -77,7 +78,7 @@ struct AppState{
     uint32_t old_height;
     cairo_surface_t * cai_srfc;
     cairo_t * cai_context;
-
+    struct panel_data * panel_data;
 };
 
 struct fd_object {
@@ -88,6 +89,16 @@ struct fd_object {
     int pipe;
     int epfd;
     pthread_mutex_t * mutex;
+};
+
+struct panel_data {
+    int enabled;
+    int type;
+    int x;
+    int y;
+    int width;
+    int height;
+    char  path[5][128];
 };
 
 // enum for event

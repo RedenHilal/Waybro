@@ -78,7 +78,10 @@ void get_workspace_data(void *);
 
 // clean up function
 
+//
 
+void resources_init(void *);
+void read_config(char * path, struct AppState * appState);
 
 
 #endif

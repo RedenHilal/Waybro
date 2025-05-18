@@ -115,7 +115,7 @@ void * mpd_get(void * data){
     socket_object->data = object_data;
 
     struct epoll_event event;
-    event.events = EPOLLIN ;
+    event.events = EPOLLIN | EPOLLET;
     event.data.ptr = socket_object;
     if(epoll_ctl(object->epfd, EPOLL_CTL_ADD, socket_fd, &event) < 0){
         perror("hai");
