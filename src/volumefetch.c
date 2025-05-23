@@ -2,8 +2,6 @@
 
 static pid_t pid;
 
-static void killchild(void);
-
 void * volume_get(void* data){
     struct fd_object * object = data;
     char drainbuff[512];
@@ -35,7 +33,6 @@ void * volume_get(void* data){
 }
 
 int get_volume_fd(){
-    atexit(killchild);
     
     int pipes[2];
     if (pipe(pipes) != 0) ON_ERR("pipes - vol fetch")
@@ -56,9 +53,23 @@ int get_volume_fd(){
     return pipes[0];
 }
 
-static void killchild(){
-    if(pid > 0){
-        kill(pid, SIGTERM);
-        
-    }
+void get_volume_data(void * data){
+    struct fd_object * object = data;
+    int * object_data = object->data;
+    char buffer[512] ;
+
+    FILE * res = popen("pactl get-sink-volume @DEFAULT_SINK@", "r");
+
+    if(res == NULL) ON_ERR("crash")
+
+    fgets(buffer, sizeof(buffer) - 1, res);
+    int startvol = strcspn(buffer, "/") + 3;
+
+    int *last_volume = object->data;
+    int volume = atoi(buffer + startvol);
+    *last_volume = volume;
+
+    write(object->pipe,&(Event){VOLUME,0,volume, object->data},sizeof(Event));
+
+    pclose(res);
 }

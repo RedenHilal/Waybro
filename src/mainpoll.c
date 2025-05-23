@@ -72,9 +72,17 @@ void *mainpoll(void * data){
     power_ac_init(fd_handler_object,power_file,ac_file);
     
     int epfd = set_epoll(fds, fd_handler_object);
+    power_get(&fd_handler_object[6]);
+    ac_get(&fd_handler_object[8]);
     time_fd_init(&fd_handler_object[1]);
     mpd_get(&fd_handler_object[7]);
+    network_get(&fd_handler_object[5]);
+    brightness_get(&fd_handler_object[2]);
+
     get_workspace_data(&fd_handler_object[0]);
+    get_volume_data(&fd_handler_object[3]);
+    get_bluetooth_data(&fd_handler_object[4]);
+
 
     while (1) {
         int ready = epoll_wait(epfd, events, MAKS_EVENT, -1);

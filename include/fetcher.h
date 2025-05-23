@@ -75,12 +75,15 @@ void * handle_idle(void*);
 // starter function 
 
 void get_workspace_data(void *);
+void get_bluetooth_data(void *);
+void get_volume_data(void *);
 
 // clean up function
 
 //
 
 void resources_init(void *);
+void set_nonblock(int fd);
 void read_config(char * path, struct AppState * appState);
 
 

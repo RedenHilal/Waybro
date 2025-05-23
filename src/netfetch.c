@@ -2,8 +2,6 @@
 
 static pid_t pid;
 
-static void killchild();
-
 void * network_get(void* data){
     struct fd_object * object = data;
     int net_fd = open(NET_PATH,O_RDONLY | O_CLOEXEC);
@@ -33,7 +31,6 @@ void * network_get(void* data){
 }
 
 int get_net_fd(){
-    atexit(killchild);
 
     int net = 0,prev = 0;
     int pipes[2];
@@ -54,11 +51,7 @@ int get_net_fd(){
         ON_ERR("exec ip monitor - net")
     }
 
-    return pipes[0];
-}
+    set_nonblock(pipes[0]);
 
-static void killchild(){
-    if(pid > 0){
-        kill(pid, SIGTERM);
-    }
+    return pipes[0];
 }

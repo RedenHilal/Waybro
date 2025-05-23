@@ -1,5 +1,16 @@
 #include "../include/fetcher.h"
 
+void set_nonblock(int fd){
+    int flag = fcntl(fd, F_GETFL, 0);
+    if (flag < 0)
+        ON_ERR("fcntl - nonblock")
+
+    if (fcntl(fd, F_SETFL, flag | O_NONBLOCK) < 0)
+        ON_ERR("fcntl 2 - nonblock")
+
+    return;
+}
+
 void * sysclick_get(void* data){
     int inotify_fd = inotify_init1(IN_CLOEXEC);
     if (inotify_fd < 0) {
@@ -60,6 +71,8 @@ uint64_t get_power_fd(){
 
     if (inotify_add_watch(inotify_fd, POWER_PATH, IN_CLOSE_NOWRITE) < 0) 
         ON_ERR("Add watch - batt file")
+
+    set_nonblock(inotify_fd);
    
     int file_fd = open(POWER_PATH, O_RDONLY | IN_CLOEXEC);
 
@@ -78,6 +91,8 @@ uint64_t get_ac_fd(){
     ON_ERR("Add watch - Charge file")
 
     int file_fd = open(CHARGE_PATH, O_RDONLY | IN_CLOEXEC);
+
+    set_nonblock(ac_inot);
 
     uint64_t mask = 0;
     mask = ac_inot;

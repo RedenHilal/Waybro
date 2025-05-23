@@ -1,11 +1,11 @@
 #include "../include/fetcher.h"
 
-static void killchild();
-
 static pid_t pid;
 
 void * bluetooth_get(void* data){
     struct fd_object * object = data;
+    int * bluetooth_count = object->data;
+
     char buffer[1024];
     Event blueevent;
     int bytereads; 
@@ -13,18 +13,17 @@ void * bluetooth_get(void* data){
     bytereads = read(object->fd, buffer, sizeof(buffer) - 1) ;
     buffer[bytereads] = 0;
     if (strstr(buffer, "Connected: yes") != NULL) {
-        blueevent.value = 1;
+        (*bluetooth_count) += 1;
     } else if (strstr(buffer, "Connected: no") != NULL) {
-        blueevent.value = 0;
+        (*bluetooth_count) -= 1;
     } else {
         return NULL;
     }
 
-    int * last_state = object->data;
-    if(blueevent.value == *last_state) return NULL;
-
     blueevent.specifier = 1;
     blueevent.type = BLUETOOTH;
+    blueevent.data = (void*)bluetooth_count;
+
     write(object->pipe, &blueevent, sizeof(Event));
     
 
@@ -32,7 +31,6 @@ void * bluetooth_get(void* data){
 }
 
 int get_bluetooth_fd(){
-    atexit(killchild);
     int pipes[2];
     if(pipe(pipes) != 0) 
         ON_ERR("pipe - bluetooth")
@@ -52,8 +50,17 @@ int get_bluetooth_fd(){
     return pipes[0];
 }
 
-static void killchild(){
-    if(pid > 0){
-        kill(pid, SIGTERM);
-    }
+void get_bluetooth_data(void * data){
+    struct fd_object * object = data;
+    int * object_data = object->data;
+    char buffer[32] = {0};
+
+    FILE * res = popen("bluetoothctl devices Connected | wc -l", "r");
+
+    fgets(buffer,sizeof(buffer) - 1,res);
+
+    int bluetooth_con = atoi(buffer);
+    *object_data = bluetooth_con;
+
+    write(object->pipe, &(Event){BLUETOOTH,0,bluetooth_con,object->data}, sizeof(Event));
 }

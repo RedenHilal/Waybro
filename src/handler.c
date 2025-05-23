@@ -16,7 +16,7 @@ static void expose_rect_area(struct AppState * appstate,int x,int y, int width, 
     wl_surface_commit(appstate->surface);
 }
 
-static void render_text(struct AppState * appstate, int x, int y, int fontsize, char* string){
+static void render_text(struct AppState * appstate, int x, int y, int fontsize, const char* string){
     //cairo_select_font_face(appstate->cai_context, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
     cairo_set_font_size(appstate->cai_context,fontsize);
     cairo_set_source_rgba(appstate->cai_context, 1, 1, 1, ALPHA);
@@ -24,9 +24,15 @@ static void render_text(struct AppState * appstate, int x, int y, int fontsize, 
     cairo_show_text(appstate->cai_context, string);
 }
 
-void resources_init(void * data){
+static void draw_rect(struct AppState * appstate, int x, int y, int width, int height){
+    cairo_set_source_rgba(appstate->cai_context, 1.0, 105.0/255.0, 196.0/255.0, ALPHA);
+    cairo_rectangle(appstate->cai_context, x, y, width, height);
+    cairo_fill(appstate->cai_context);
+}
+
+static void render_resource(void * data, const char * path, int x, int y, int width,int height){
     struct AppState * appstate = data;
-    resources = cairo_image_surface_create_from_png("../build/resources/battery-mid-svgrepo-com.png");
+    resources = cairo_image_surface_create_from_png(path);
     if(cairo_surface_status(resources) != CAIRO_STATUS_SUCCESS)
         ON_ERR("load resources - handler")
 
@@ -34,14 +40,20 @@ void resources_init(void * data){
     int img_width = cairo_image_surface_get_width(resources);
     int img_height = cairo_image_surface_get_height(resources);
 
-    cairo_translate(appstate->cai_context, 1800, 0);
-    cairo_scale(appstate->cai_context, (double)appstate->height/img_width, (double)appstate->height/img_height);
+    cairo_translate(appstate->cai_context, x, y);
+    cairo_scale(appstate->cai_context, (double)width/img_width, (double)width/img_height);
     cairo_set_source_rgba(appstate->cai_context, 1, 1, 1, ALPHA);
     cairo_mask_surface(appstate->cai_context, resources, 0, 0);
 
     cairo_restore(appstate->cai_context);
+}
 
-    expose_rect_area(appstate, 1800, 0, 30, appstate->height);
+void resources_init(void * data){
+    render_resource(data, "../build/resources/battery-mid-svgrepo-com.png", 1820, 0, 30, 30);
+    render_resource(data, "../build/resources/bluetooth-on-svgrepo-com.png", 1760,3, 24, 24);
+    render_resource(data, "../build/resources/wifi-1018-svgrepo-com.png", 1700, 3, 24, 24);
+    render_resource(data, "../build/resources/volume-high-svgrepo-com.png", 1600, 3, 24, 24);
+    render_resource(data, "../build/resources/brightness-svgrepo-com.png", 1540, 3, 24, 24);
 }
 
 void * handle_sysclick(void * data){
@@ -87,9 +99,7 @@ void * handle_workspace(void * data){
 
     erase_rect_area(appState, 0, 0, 200, appState->height);
 
-    cairo_set_source_rgba(appState->cai_context, 1.0, 105.0/255.0, 196.0/255.0, ALPHA);
-    cairo_rectangle(appState->cai_context,0,0,200,appState->height);
-    cairo_fill(appState->cai_context);
+    draw_rect(appState, 0, 0, 200, appState->height);
 
     if(available_workspace > 6) available_workspace = 6;
     
@@ -124,9 +134,7 @@ void * handle_time(void * data){
 
     erase_rect_area(appstate, 920, 0, 200, appstate->height);
 
-    cairo_set_source_rgba(appstate->cai_context, 1, 105.0/255.0, 196.0/255.0, ALPHA);
-    cairo_rectangle(appstate->cai_context,  920, 0, 200, appstate->height);
-    cairo_fill(appstate->cai_context);
+    draw_rect(appstate, 920, 0, 200, appstate->height);
 
     render_text(appstate, 920, appstate->height-5, appstate->height, clock_now);
 
@@ -137,28 +145,64 @@ void * handle_time(void * data){
 
 void * handle_brightness(void * data){
     Event event = *(Event *) data;
+    struct AppState * appstate = event.appState;
+    char buffer[16];
+
     printf("Event Triggered %d | Brightness status: %d\n", event.type,event.value);
+
+    snprintf(buffer, sizeof(buffer) - 1, "%d%%", event.value);
+
+    erase_rect_area(appstate, 1570, 0, 30, appstate->height);
+    draw_rect(appstate, 1570, 0, 30, appstate->height);
+    render_text(appstate, 1570, appstate->height - 10, appstate->height - 15, buffer);
+    expose_rect_area(appstate, 1540, 0, 60, appstate->height);
 
     return NULL;
 }
 
 void * handle_volume(void * data){
     Event event = *(Event *) data;
+    struct AppState * appstate = event.appState;
+    char buffer[16];
+
     printf("Event Triggered %d | Volume status: %d\n", event.type,event.value);
+    snprintf(buffer, sizeof(buffer) - 1, "%d%%", event.value);
+
+    erase_rect_area(appstate, 1630, 0, 30, appstate->height);
+    draw_rect(appstate, 1630, 0, 30, appstate->height);
+    render_text(appstate, 1630, appstate->height - 10, appstate->height - 15, buffer);
+    expose_rect_area(appstate, 1600, 0, 60, appstate->height);
     
     return NULL;
 }
 
 void * handle_bluetooth(void * data){
     Event event = *(Event *) data;
-    printf("Event Triggered %d | Bluetooth %s\n", event.type,event.value? "Connected":"Disconnected");
+    struct AppState * appstate = event.appState;
+    int * connections = (int *)event.data;
+    char buffer[16];
+
+    snprintf(buffer, sizeof(buffer) - 1, "%d", *connections);
+    printf("Event Triggered %d | Bluetooth Connection: %d\n", event.type,*connections);
+
+    erase_rect_area(appstate, 1790, 0, 30, appstate->height);
+    draw_rect(appstate, 1790, 0, 30, appstate->height);
+    render_text(appstate, 1790, appstate->height - 10, appstate->height-15, buffer);
+    expose_rect_area(appstate, 1760, 0, 60, appstate->height);
 
     return NULL;
 }
 
 void * handle_network(void * data){
     Event event = *(Event *) data;
+    struct AppState * appstate = event.appState;
+    
     printf("Event Triggered %d | Wifi is %s\n", event.type,event.value? "Up":"Down");
+
+    erase_rect_area(appstate, 1730, 0, 30, appstate->height);
+    draw_rect(appstate, 1730, 0, 30, appstate->height);
+    render_text(appstate, 1730, appstate->height - 10, appstate->height - 15, event.value?"Up":"Down");
+    expose_rect_area(appstate, 1700, 0, 60, appstate->height);
 
     return NULL;
 }
@@ -181,15 +225,13 @@ void * handle_power(void * data){
 
     snprintf(power, 5, "%d%%", event.value);
 
-    erase_rect_area(appstate, 1830, 0, 90, appstate->height);
+    erase_rect_area(appstate, 1850, 0, 90, appstate->height);
 
-    cairo_set_source_rgba(appstate->cai_context, 1, 105.0/255.0, 196.0/255.0, ALPHA);
-    cairo_rectangle(appstate->cai_context,  1830, 0, 90, appstate->height);
-    cairo_fill(appstate->cai_context);
+    draw_rect(appstate, 1850, 0, 90, appstate->height);
 
-    render_text(appstate, 1830, appstate->height - 8, appstate->height-10, power);
+    render_text(appstate, 1850, appstate->height - 10, appstate->height-15, power);
 
-    expose_rect_area(appstate, 1830, 0, 90, appstate->height);
+    expose_rect_area(appstate, 1820, 0, 70, appstate->height);
 
     return NULL;
 }

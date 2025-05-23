@@ -33,5 +33,7 @@ int get_brightness_fd(){
         exit(1);
     }
 
+    set_nonblock(inotify_fd);
+
     return inotify_fd;
 }

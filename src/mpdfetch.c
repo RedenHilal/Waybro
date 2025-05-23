@@ -21,8 +21,16 @@ static void init_path(){
     mpd_dir_path = dir_path_dummy;   
 }
 
-void get_curr_song(int fd, char * write_buffer){
+static int find_starting_utf(char * string, int n){
+    while(n > 0 && (string[n] & 0xc0) == 0x80){
+        n--;
+    }
+    return n;
+}
+
+static void get_curr_song(int fd, char * write_buffer){
     char buffer[512];
+    int write_buff_len = 124;
 
     int res = write(fd,"currentsong\n",12);
 
@@ -45,7 +53,12 @@ void get_curr_song(int fd, char * write_buffer){
         if(title_end) *title_end = 0;
         if(artist_end) *artist_end = 0;
         
-        snprintf(write_buffer, 124, "%s - %s", title,artist);
+        int byte_printed = snprintf(write_buffer, write_buff_len, "%s - %s", title,artist);
+        
+        if(byte_printed >= write_buff_len){
+            int valid_cut = find_starting_utf(write_buffer, write_buff_len - 1);
+            write_buffer[valid_cut] = 0;
+        }
     }
 }
 
@@ -146,12 +159,7 @@ int get_mpd_fd(){
     if (inotify_add_watch(intfd, mpd_dir_path, IN_CREATE ) < 0)
         ON_ERR("Inotify - mpd")
 
-    int flag = fcntl(intfd,F_GETFL, 0);
-    if (flag == -1)
-        ON_ERR("fcntl - mpd")
-
-    if (fcntl(intfd, F_SETFL, flag | O_NONBLOCK) == -1)
-        ON_ERR("fnctl append - mpd")
+    set_nonblock(intfd);
 
     
     return intfd;
