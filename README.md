@@ -12,13 +12,12 @@ Waybro uses **Cairo** for rendering and is intended to be minimal, lightweight, 
 
 ## ✨ Features
 
-- [x] Battery status via, inotify
-- [x] Volume level via pactl _(plan to change it later)_
+- [x] Battery status via
+- [x] Volume level
 - [x] Support for Hyprland
-- [x] Rendered via Cairo
 - [x] MPD Status
 - [x] Workspace
-- [x] And other status, either via inotify or forking existing tools
+- [x] And other status, either via inotify, unix socket, or forking existing tools
 - [ ] Configuration file support *(planned)*
 - [ ] Multi-compositor support *(planned)*
 - [ ] Module and Plugin support *(planned)*
