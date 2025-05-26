@@ -12,10 +12,13 @@ Waybro uses **Cairo** for rendering and is intended to be minimal, lightweight, 
 
 ## ✨ Features
 
-- [x] Battery status
-- [x] Volume level
+- [x] Battery status via, inotify
+- [x] Volume level via pactl _(plan to change it later)_
 - [x] Support for Hyprland
 - [x] Rendered via Cairo
+- [x] MPD Status
+- [x] Workspace
+- [x] And other status, either via inotify or forking existing tools
 - [ ] Configuration file support *(planned)*
 - [ ] Multi-compositor support *(planned)*
 
@@ -33,8 +36,11 @@ Waybro uses **Cairo** for rendering and is intended to be minimal, lightweight, 
 ### Build
 
 ```bash
-git clone https://github.com/yourname/waybro.git
-cd waybro
+git clone https://github.com/yourname/Waybro.git
+cd Waybro
 cmake -B build
 cmake --build build
 ```
+
+## 📜 License
+MIT License — see the [LICENSE](https://github.com/RedenHilal/Waybro?tab=MIT-1-ov-file#) file for details.
