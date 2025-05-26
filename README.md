@@ -21,6 +21,7 @@ Waybro uses **Cairo** for rendering and is intended to be minimal, lightweight, 
 - [x] And other status, either via inotify or forking existing tools
 - [ ] Configuration file support *(planned)*
 - [ ] Multi-compositor support *(planned)*
+- [ ] Module and Plugin support *(planned)*
 
 ---
 
