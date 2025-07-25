@@ -15,7 +15,7 @@ void * brightness_get(void* data){
     brightnessbuf[3] = 0;
 
     int brightness = atoi(brightnessbuf);
-    write(object->pipe , &(Event){BRIGHTNESS,1,(brightness * 100)/255}, sizeof(Event) );
+    write(object->pipe , &(Event){BRIGHTNESS,1,(brightness * 100) / BRIGHTNESS_SCALE}, sizeof(Event) );
     
     close(file_monitor);
     return NULL;

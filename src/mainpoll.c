@@ -31,18 +31,18 @@ return epfd;
 
 static void set_handler(int * fds, struct fd_object * object, Thread_struct * param){
     for (int i = 0; i < fd_count;i++){
-        char * data = calloc(124,1);
+        char * data = calloc(128,1);
         object[i].pipe = param->pipe;
         object[i].fd = fds[i];
         object[i].handler = fds_handler[i];
         object[i].event = events[i];
         object[i].data = data;
-        object[i].mutex = &param->mutex[events[i]];
+        object[i].styles = param->styles;
     }
 }
 
-
 void *mainpoll(void * data){
+
     struct fd_object fd_handler_object[fd_count];
     struct epoll_event events[MAKS_EVENT];
     Thread_struct * param = data; 
@@ -67,7 +67,7 @@ void *mainpoll(void * data){
         bluetooth_fd, net_fd, power_fd,mpd_fd, ac_fd
     };
     
-    resources_init(param->appState);
+    //resources_init(param->appState);
     set_handler(fds, fd_handler_object,param);
     power_ac_init(fd_handler_object,power_file,ac_file);
     
@@ -76,7 +76,8 @@ void *mainpoll(void * data){
     ac_get(&fd_handler_object[8]);
     time_fd_init(&fd_handler_object[1]);
     mpd_get(&fd_handler_object[7]);
-    network_get(&fd_handler_object[5]);
+    //network_get(&fd_handler_object[5]);
+    net_set(&fd_handler_object[5]);
     brightness_get(&fd_handler_object[2]);
 
     get_workspace_data(&fd_handler_object[0]);
@@ -92,6 +93,5 @@ void *mainpoll(void * data){
             object_fd->handler(object_fd);
         }
     }
-
 
 }

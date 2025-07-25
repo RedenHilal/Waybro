@@ -3,12 +3,13 @@
 static pid_t pid;
 
 void * network_get(void* data){
+    
     struct fd_object * object = data;
     int net_fd = open(NET_PATH,O_RDONLY | O_CLOEXEC);
     lseek(net_fd, SEEK_SET, 0);
     int * prev_stat = object->data;
 
-    char drainbuff[256];
+    char drainbuff[512];
     char buffer[16];
 
     read(object->fd,drainbuff,sizeof(drainbuff)) ;
@@ -28,6 +29,13 @@ void * network_get(void* data){
     close(net_fd);
 
     return NULL;
+}
+
+void net_set(struct fd_object * data){
+    int * val = data->data;
+    *val = (int)~(0u);
+
+    network_get(data);
 }
 
 int get_net_fd(){

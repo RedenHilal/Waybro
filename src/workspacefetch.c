@@ -1,9 +1,10 @@
 #include "../include/fetcher.h"
 
 void * workspace_get(void* data){
+    
     struct fd_object * object = data;
     int * object_data = object->data;
-    char buffer[512] = {0};
+    char buffer[1024] = {0};
     Event workspaceevent;
     char * iter;
 
@@ -11,8 +12,8 @@ void * workspace_get(void* data){
 
     read(object->fd,buffer,sizeof(buffer));
 
-    if((iter = strstr(buffer, "createworkspace>>"))) {
-        int createdworkspace = *(iter + 17) - 48;
+    if((iter = strstr(buffer, "createworkspace>>"))) {\
+        int createdworkspace = atoi(iter + 17);
         object_data[createdworkspace / (sizeof(int) * 8)] |= (1 << createdworkspace % (sizeof(int) * 8) );
         *(object_data-1) += 1;
         
@@ -20,7 +21,7 @@ void * workspace_get(void* data){
         write(object->pipe, &workspaceevent, sizeof(Event));
     }
     else if ((iter = strstr(buffer, "destroyworkspace>>")) ) {
-        int destroyedworkspace = *(iter + 18) - 48;
+        int destroyedworkspace = atoi(iter + 18);
         object_data[destroyedworkspace / (sizeof(int) * 8)] ^= (1 << destroyedworkspace % (sizeof(int) * 8) );
         *(object_data - 1) -= 1;
 
@@ -28,7 +29,7 @@ void * workspace_get(void* data){
         write(object->pipe,&workspaceevent,sizeof(Event));
     }
     else if((iter = strstr(buffer, "workspace>>"))) {
-        int workspacenow = *(iter + 11) - 48;
+        int workspacenow = atoi(iter + 11);
         *(object_data - 2) = workspacenow;
         
         workspaceevent = (Event){WORKSPACE, ACTIVE_WORKSPACE,workspacenow,object->data};

@@ -1,10 +1,12 @@
 #include "../include/displayer.h"
 #include "../include/fetcher.h"
+#include "../include/style.h"
 
 // Array of function to handle events type
 // index is matched by its corresponding enum value
 
-static void * (*handler_group[DATA_COUNT])(void*data) = {
+static void * (*handler_group[DATA_COUNT])(void*data) = 
+{
     handle_sysclick,
     handle_workspace,
     handle_time,
@@ -16,11 +18,38 @@ static void * (*handler_group[DATA_COUNT])(void*data) = {
     handle_mpd
 };
 
+static void *(*get_styles[DATA_COUNT])(struct component_entries **,struct m_style*) = 
+{
+    get_sys_sty,
+    get_ws_sty,
+    get_tm_sty,
+    get_brght_sty,
+    get_vol_sty,
+    get_blue_sty,
+    get_net_sty,
+    get_power_sty,
+    get_mpd_sty
+};
+
+static struct sigaction sigact = {
+    handle_segv,
+    0,
+    0,
+    0
+};
+
+static struct sigaction sigacttou = {
+    handle_sigttou,
+    0,
+    0,
+    0
+};
 
 static pthread_mutex_t mutex[DATA_COUNT];
 
 
 static int setepoll(int pipe,struct AppState* appstate){
+
     struct epoll_event event,wlevent;
     event.data.fd = pipe;
     event.events = EPOLLIN;
@@ -38,18 +67,27 @@ static int setepoll(int pipe,struct AppState* appstate){
     return epfd;
 }
 
-static void mutex_init (pthread_mutex_t * mutexes){
-    for (int i = 0;i<DATA_COUNT;i++){
-        mutex_init(&mutexes[i]);
+static void get_style(void * styles[], struct component_entries ** entries,
+                      struct m_style * main_sty){
+
+    for (int i = 0; i < DATA_COUNT;i++){
+        styles[i] = get_styles[i](entries,main_sty);
     }
 }
 
 int main(){
     struct AppState appstate = {0};
-   
-    appstate.width = 1920;
-    appstate.height = 30; 
+    sigaction(SIGSEGV, &sigact, NULL);
+    sigaction(SIGTTOU, &sigacttou, NULL);
+
+    struct component_entries * cpn_entries = read_config(NULL, &appstate);
+    struct m_style * m_style = translate_mstyle(&cpn_entries);
+
+    void * styles[DATA_COUNT];
+    get_style(styles,&cpn_entries, m_style);
     
+    appstate.m_style = m_style;
+
     int epfd, pipes[2];
     struct epoll_event sock_event, events[MAKS_EVENT];
     pthread_t threadID;
@@ -58,7 +96,7 @@ int main(){
     if (pipe(pipes) != 0) 
         ON_ERR("Pipe - main")
     
-    Thread_struct param = {pipes[1],&appstate, mutex};
+    Thread_struct param = {pipes[1],&appstate,cpn_entries};
     
     
     setwayland(&appstate);
@@ -82,6 +120,7 @@ int main(){
                 }
 
                 dump[i].appState = &appstate;
+                dump[i].styles = styles[dump[i].type];
                 handler_group[dump[i].type](&dump[i]);
                 
             }

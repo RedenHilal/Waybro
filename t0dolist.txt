@@ -1,0 +1,5 @@
+1 - do config parser # in process
+2 - update fetcher to use dbus # i'll consider it since ../BAT0/capacity seems portable
+3 - make another thread to process signal
+4 - optimize polling, maybe use bare mutex/semaphore
+5 - improve font, string output

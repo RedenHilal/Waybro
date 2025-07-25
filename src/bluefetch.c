@@ -47,6 +47,7 @@ int get_bluetooth_fd(){
         ON_ERR("Exec bluetoothctl - bluetooth");
     }
 
+    proc_reg(pid);
     return pipes[0];
 }
 

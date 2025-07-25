@@ -2,6 +2,7 @@
 #define DISPLAYER_H
 
 #include <stdio.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -38,9 +39,15 @@
 #define DATA_COUNT 9
 #define ALPHA 0.8
 
+#define TO_DOUBLE(num) (double)num
+#define TO_RGB_FMT(num) TO_DOUBLE(num)/255.0
+#define INV_RGB(num) 255.0-TO_DOUBLE(num)
+#define TO_ALPHA(num) TO_DOUBLE(num)/100.0
+
 #define ON_ERR(trigger) {printf("ERR on: %s\n", trigger); exit(1);}
 #define INT_BITS (sizeof(int) * 8)
 
+#define PASSABLE_EVENT_SIZE offsetof(Event, appState)
 
 typedef struct {
     int type; // fill it with enum event
@@ -49,14 +56,16 @@ typedef struct {
     char * data;
 
      // appstate is passed from main and should not be overwriten
+     // therefore the usage of PASSABLE_EVENT_SIZE constant
 
      struct AppState * appState; 
+     void * styles;
 } Event;
 
 typedef struct {
     int pipe;
     struct AppState * appState;
-    pthread_mutex_t * mutex;
+    struct component_entries * styles;
     // maybe another data
 } Thread_struct;
 
@@ -72,13 +81,10 @@ struct AppState{
     struct zwlr_layer_shell_v1 * zwlr_sh;
     struct zwlr_layer_surface_v1 * zwlr_srfc;
     uint8_t * buffptr;
-    uint32_t width;
-    uint32_t height;
-    uint32_t old_width;
-    uint32_t old_height;
+
     cairo_surface_t * cai_srfc;
     cairo_t * cai_context;
-    struct panel_data * panel_data;
+    struct m_style * m_style;
 };
 
 struct fd_object {
@@ -88,17 +94,13 @@ struct fd_object {
     void * data;
     int pipe;
     int epfd;
+    struct component_entries * styles;
     pthread_mutex_t * mutex;
 };
 
-struct panel_data {
-    int enabled;
-    int type;
-    int x;
-    int y;
-    int width;
-    int height;
-    char  path[5][128];
+struct proc_register {
+    int proc[DATA_COUNT];
+    int count;
 };
 
 // enum for event

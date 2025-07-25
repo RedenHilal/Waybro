@@ -4,20 +4,20 @@
 #define FETCHER_H
 
 #define POWER_PATH "/sys/class/power_supply/BAT0/capacity"
-#define BRIGHTNESS_PATH "/sys/class/backlight/amdgpu_bl1/brightness"
 #define CHARGE_PATH "/sys/class/power_supply/AC0/online"
 #define NET_PATH "/sys/class/net/wlp1s0/operstate"
 
 // get fd(s)
 
 // power_fd uses 64 bit as the first 32 bit contain inotify fd that should be polled
-// and the next 32 bit shall fd to the open file which could be read from
+// and the next 32 bit shall be the fd that could be read from
 uint64_t get_power_fd();
 uint64_t get_ac_fd();
 
 int get_bluetooth_fd();
 int get_mpd_fd();
 int get_net_fd();
+void net_set(struct fd_object *);
 int get_time_fd();
 int get_volume_fd();
 int get_workspace_fd();
@@ -80,11 +80,16 @@ void get_volume_data(void *);
 
 // clean up function
 
-//
+// config parsing
+struct component_entries * read_config(char * path, struct AppState * appState);
+struct m_style * translate_mstyle(struct component_entries **);
 
+// misc
 void resources_init(void *);
 void set_nonblock(int fd);
-void read_config(char * path, struct AppState * appState);
+void handle_segv(int);
+void handle_sigttou(int);
+void proc_reg(int);
 
 
 #endif

@@ -50,6 +50,8 @@ int get_volume_fd(){
         ON_ERR("exec - vol fetch")
     }
 
+    proc_reg(pid);
+
     return pipes[0];
 }
 
