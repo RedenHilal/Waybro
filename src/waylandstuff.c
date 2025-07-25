@@ -1,4 +1,5 @@
 #include "../include/displayer.h"
+#include "../include/style.h"
 
 // functions belows (until end of section) are responsible for drawing pixels
 // might move it to other function if cairo do some mess
@@ -18,31 +19,35 @@ int alc_shm(uint64_t size){
 }
 
 void draw(struct AppState* appstate){
-
-    cairo_set_source_rgba(appstate->cai_context, 1.0, 105.0/255.0, 196.0/255.0, ALPHA);
-    cairo_rectangle(appstate->cai_context,0,0,appstate->width,appstate->height);
-    cairo_fill(appstate->cai_context);
-
-    cairo_select_font_face(appstate->cai_context, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(appstate->cai_context,appstate->height);
+    struct m_style * main_sty = appstate->m_style;
     
-    wl_surface_attach(appstate->surface, appstate->buffer, 0, 0);
-    wl_surface_damage_buffer(appstate->surface, 0, 0, appstate->width, appstate->height);
-    wl_surface_commit(appstate->surface);
+    // cairo_set_source_rgba(appstate->cai_context, TO_RGB_FMT(main_sty->r), TO_RGB_FMT(main_sty->g), TO_RGB_FMT(main_sty->b), TO_ALPHA(main_sty->a));
+    // cairo_rectangle(appstate->cai_context,0,0,main_sty->width,main_sty->height);
+    // cairo_fill(appstate->cai_context);
+
+    // cairo_select_font_face(appstate->cai_context, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    // cairo_set_font_size(appstate->cai_context,main_sty->height);
+    
+    // wl_surface_attach(appstate->surface, appstate->buffer, 0, 0);
+    // wl_surface_damage_buffer(appstate->surface, 0, 0, main_sty->width, main_sty->height);
+    // wl_surface_commit(appstate->surface);
 }
 
 void resize(struct AppState* appstate){
-    int64_t size = appstate->width * appstate->height * 4;
-    int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32,appstate->width);
+
+    struct m_style * main_sty = appstate->m_style;
+
+    int64_t size = main_sty->width * main_sty->height * 4;
+    int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32,main_sty->width);
     int fd = alc_shm(size);
 
     appstate->buffptr = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     appstate->cai_srfc = cairo_image_surface_create_for_data(appstate->buffptr, CAIRO_FORMAT_ARGB32,
-                                                            appstate->width, appstate->height, stride);
+                                                            main_sty->width, main_sty->height, stride);
     appstate->cai_context = cairo_create(appstate->cai_srfc);
 
     struct wl_shm_pool * pool = wl_shm_create_pool(appstate->shm, fd, size);
-    appstate->buffer = wl_shm_pool_create_buffer(pool, 0, appstate->width, appstate->height, appstate->width * 4, WL_SHM_FORMAT_ARGB8888);
+    appstate->buffer = wl_shm_pool_create_buffer(pool, 0, main_sty->width, main_sty->height, main_sty->width * 4, WL_SHM_FORMAT_ARGB8888);
     
     wl_shm_pool_destroy(pool);
     close(fd);
@@ -160,6 +165,7 @@ int setwayland(struct AppState* appstate){
     // in the appstate struct, hence its manually passed at the registry global
 
     const struct wl_registry_listener listener = {.global = wl_registry_global, .global_remove = wl_registry_global_remove};
+    struct m_style * main_sty = appstate->m_style;
     
     appstate->display = wl_display_connect(NULL);
     appstate->registry = wl_display_get_registry(appstate->display);
@@ -172,17 +178,12 @@ int setwayland(struct AppState* appstate){
     appstate->zwlr_srfc = zwlr_surface;
 
     zwlr_layer_surface_v1_set_anchor(zwlr_surface, ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT );
-    zwlr_layer_surface_v1_set_size(zwlr_surface, appstate->width, appstate->height);
-    zwlr_layer_surface_v1_set_exclusive_zone(zwlr_surface, appstate->height);
+    zwlr_layer_surface_v1_set_size(zwlr_surface, main_sty->width, main_sty->height);
+    zwlr_layer_surface_v1_set_exclusive_zone(zwlr_surface, main_sty->height);
     zwlr_layer_surface_v1_add_listener(zwlr_surface, &zwlr_surface_listener, appstate);
 
- 
-    
-   
     wl_surface_commit(appstate->surface);
     wl_display_roundtrip(appstate->display);
-
-
-        
+  
     return 0;
 }

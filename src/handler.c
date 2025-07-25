@@ -1,8 +1,95 @@
 #include "../include/fetcher.h"
+#include "../include/style.h"
 
 cairo_surface_t * resources;
 
-static void erase_rect_area(struct AppState* appstate, int x,int y,int width, int height){
+static void draw_arc(cairo_t * cai_context, struct base_style * base, struct m_style * m_sty, int width){
+    
+    int lx = base->x  + base->rd_left;
+    int rx = width + base->rd_left + base->x;
+    int y = base->y + base->height/2;
+   
+    cairo_set_source_rgba(cai_context, TO_RGB_FMT(m_sty->r), TO_RGB_FMT(m_sty->g),
+                        TO_RGB_FMT(m_sty->b), TO_ALPHA(m_sty->a));    
+
+    if (base->rd_left)
+        cairo_arc(cai_context, lx, y, base->rd_left, M_PI_2, 3 * M_PI_2);
+    if (base->rd_right)
+        cairo_arc(cai_context, rx, y, base->rd_right, -M_PI_2, M_PI_2);
+
+
+    cairo_fill(cai_context);
+    
+}
+
+
+static void get_center(PangoLayout * layout, int * x, int * y,struct base_style * base){
+    
+    int width, height;
+    pango_layout_get_size(layout, &width,&height);
+
+    width /= PANGO_SCALE;
+    height /= PANGO_SCALE;
+
+    *x = base->x + (base->width - width) / 2;
+    *y = base->y + (base->height - height) / 2;
+}
+
+static void draw_text(cairo_t * cai_context, struct base_style * style, char * text){
+
+    int x, y;
+    
+    PangoLayout * layout = pango_cairo_create_layout(cai_context);
+    
+	pango_layout_set_text(layout, text, -1);
+	pango_layout_set_font_description(layout, pango_font_description_from_string("Comic Neue 11"));
+
+    get_center( layout, &x, &y, style);
+
+	cairo_set_source_rgba(cai_context, 1, 1, 1, ALPHA);
+	cairo_move_to(cai_context, x, y);
+    
+	pango_cairo_show_layout(cai_context, layout);
+
+    g_object_unref(layout);    
+}
+
+static int get_prop_int(struct component_entries * entries,char * entry_name, char * field_name){
+
+    struct component_entries * ent_fnd = NULL;
+    HASH_FIND_STR(entries, entry_name, ent_fnd);
+
+    if (!ent_fnd){
+        return -1;
+    }
+
+    struct component_style * sty_fnd = NULL;
+    HASH_FIND_STR(ent_fnd->style, field_name, sty_fnd);
+
+    if (!sty_fnd){
+        return -1;
+    }
+
+}
+
+static char * get_str_by_format(char * format, char * str_val){
+
+    char * begin = strchr(format, '{');
+    char * end = strchr(begin, '}');
+
+    int pre_len = begin - format;
+    int post_len = strlen(end + 1);
+    int val_len = strlen(str_val);
+
+    int total_len = pre_len + post_len + val_len + 1;
+    char * str_fmt = malloc(total_len);
+
+    snprintf(str_fmt, total_len, "%.*s%s%s", pre_len, format, str_val, end);
+
+    return str_fmt;
+}
+
+static inline void erase_rect_area(struct AppState* appstate, int x,int y,int width, int height){
     cairo_save(appstate->cai_context);
     cairo_set_operator(appstate->cai_context, CAIRO_OPERATOR_CLEAR);
     cairo_rectangle(appstate->cai_context, x, y, width, height);
@@ -10,13 +97,13 @@ static void erase_rect_area(struct AppState* appstate, int x,int y,int width, in
     cairo_restore(appstate->cai_context);
 }
 
-static void expose_rect_area(struct AppState * appstate,int x,int y, int width, int height){
+static inline void expose_rect_area(struct AppState * appstate,int x,int y, int width, int height){
     wl_surface_attach(appstate->surface,appstate->buffer,0,0);
     wl_surface_damage(appstate->surface, x,  y, width, height);
     wl_surface_commit(appstate->surface);
 }
 
-static void render_text(struct AppState * appstate, int x, int y, int fontsize, const char* string){
+static inline void render_text(struct AppState * appstate, int x, int y, int fontsize, const char* string){
     //cairo_select_font_face(appstate->cai_context, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
     cairo_set_font_size(appstate->cai_context,fontsize);
     cairo_set_source_rgba(appstate->cai_context, 1, 1, 1, ALPHA);
@@ -24,8 +111,21 @@ static void render_text(struct AppState * appstate, int x, int y, int fontsize, 
     cairo_show_text(appstate->cai_context, string);
 }
 
-static void draw_rect(struct AppState * appstate, int x, int y, int width, int height){
-    cairo_set_source_rgba(appstate->cai_context, 1.0, 105.0/255.0, 196.0/255.0, ALPHA);
+static inline void draw_rect(struct AppState * appstate, int x, int y, int width, int height){
+    
+    struct m_style * m_sty = appstate->m_style;
+    cairo_set_source_rgba(appstate->cai_context, TO_RGB_FMT(m_sty->r), TO_RGB_FMT(m_sty->g),
+                          TO_RGB_FMT(m_sty->b), TO_ALPHA(m_sty->a));
+
+    cairo_rectangle(appstate->cai_context, x, y, width, height);
+    cairo_fill(appstate->cai_context);
+}
+
+static inline void draw_rect_spc(struct AppState * appstate, int x, int y, int width, int height,
+                          uint8_t r, uint8_t g, uint8_t b, uint8_t a){
+    cairo_set_source_rgba(appstate->cai_context, TO_RGB_FMT(r), TO_RGB_FMT(g),
+                          TO_RGB_FMT(b), TO_ALPHA(a));
+
     cairo_rectangle(appstate->cai_context, x, y, width, height);
     cairo_fill(appstate->cai_context);
 }
@@ -51,7 +151,7 @@ static void render_resource(void * data, const char * path, int x, int y, int wi
 void resources_init(void * data){
     render_resource(data, "../build/resources/battery-mid-svgrepo-com.png", 1820, 0, 30, 30);
     render_resource(data, "../build/resources/bluetooth-on-svgrepo-com.png", 1760,3, 24, 24);
-    render_resource(data, "../build/resources/wifi-1018-svgrepo-com.png", 1700, 3, 24, 24);
+    render_resource(data, "../build/resources/wifi-1018-svgrepo-com.png", 1685, 3, 24, 24);
     render_resource(data, "../build/resources/volume-high-svgrepo-com.png", 1600, 3, 24, 24);
     render_resource(data, "../build/resources/brightness-svgrepo-com.png", 1540, 3, 24, 24);
 }
@@ -64,9 +164,15 @@ void * handle_sysclick(void * data){
 }
 
 void * handle_workspace(void * data){
+
     Event event = *(Event *) data;
     struct AppState * appState = event.appState;
+    struct ws_style * style = event.styles;
+    struct base_style * base = &style->base;
+    struct m_style * main_sty = appState->m_style;
+
     int * workspace_data = (int*)event.data;
+
     int active_workspace = *workspace_data;
     int available_workspace = *(workspace_data+1);
     int workspaces[available_workspace];
@@ -76,10 +182,13 @@ void * handle_workspace(void * data){
 
     // Read workspaces info from fetcher
     for(int i = 1;count < available_workspace;i++){
+        
         if(workspaces_bits[i / INT_BITS] & (1 << (i % INT_BITS))){
             workspaces[count] = i;
             count++;
+            continue;
         }
+
     }
 
     switch (event.specifier) {
@@ -97,119 +206,200 @@ void * handle_workspace(void * data){
             break;
     }
 
-    erase_rect_area(appState, 0, 0, 200, appState->height);
+    int rect_x = base->x + base->rd_left;
+    int total_width = base->rd_left + base->width + base->rd_right;
 
-    draw_rect(appState, 0, 0, 200, appState->height);
+    erase_rect_area(appState, base->x, 0, total_width, base->height);
 
-    if(available_workspace > 6) available_workspace = 6;
+    draw_rect(appState, rect_x, base->y, 40 * available_workspace, base->height);
+    draw_arc(appState->cai_context, base, main_sty, 40 * available_workspace);
+
     
     for(int i = 0;i < available_workspace;i++){
 
         if(workspaces[i] == active_workspace){
-            cairo_set_source_rgba(appState->cai_context, 1.0, 155.0/255.0, 166.0/255.0, ALPHA);
-            cairo_rectangle(appState->cai_context,i*40,0,40,appState->height);
-            cairo_fill(appState->cai_context);
+            erase_rect_area(appState, rect_x + i * 40, base->y, 40, base->height);
+            draw_rect_spc(appState, rect_x + i * 40, base->y, 40, base->height,
+                          main_sty->r ,main_sty->g,main_sty->b,main_sty->a);
             continue;
         }
-        cairo_set_source_rgba(appState->cai_context, 1.0, 155.0/255.0, 166.0/255.0, ALPHA);
-        cairo_rectangle(appState->cai_context,i*40,0,40,appState->height);
+
+        cairo_set_source_rgba(appState->cai_context, 1.0, 106.0/255.0, 0, 0.7);
+        cairo_rectangle(appState->cai_context,rect_x + i*40,0,40,base->height);
         cairo_set_line_width(appState->cai_context, 8.0);
         cairo_stroke(appState->cai_context);
 
     }
 
-    expose_rect_area(appState, 0, 0, 200, appState->height);
+    expose_rect_area(appState, base->x , 0, total_width , base->height);
 
     return NULL;
 }
 
 void * handle_time(void * data){
+
     Event event = *(Event *) data;
+
+
     int minutes = event.value;
     struct AppState * appstate = event.appState;
+    struct m_style * m_sty = appstate->m_style;
+    struct tm_style * style = event.styles;
+    struct base_style * base = &style->base;
+
     char clock_now[10];
 
-    snprintf(clock_now, 9, "%0.2d:%0.2d", minutes/60,minutes%60);
+    snprintf(clock_now, 9, "%0.2d:%0.2d", (minutes / 60) % 24, minutes % 60);
     printf("Event Triggered %d | Time -> %0.2d:%0.2d\n", event.type,event.value/60,event.value%60);
 
-    erase_rect_area(appstate, 920, 0, 200, appstate->height);
+    int rect_x = base->x + base->rd_left;
+    int total_width = base->width + base->rd_right + base->rd_left;
+    char * text = get_str_by_format(style->format, clock_now);
 
-    draw_rect(appstate, 920, 0, 200, appstate->height);
+    erase_rect_area(appstate, base->x , base->y, total_width, base->height);
+    draw_arc(appstate->cai_context, base, m_sty, base->width);
 
-    render_text(appstate, 920, appstate->height-5, appstate->height, clock_now);
+    draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
 
-    expose_rect_area(appstate, 920, 0, 200, appstate->height);
+    draw_text(appstate->cai_context, &style->base, text);
+    free(text);
+
+    expose_rect_area(appstate, base->x, base->y, total_width, base->height);
 
     return NULL;
 }
 
 void * handle_brightness(void * data){
+
+
     Event event = *(Event *) data;
     struct AppState * appstate = event.appState;
+
+    struct brightness_style * style = event.styles;
+    struct base_style * base = &style->base;
+    struct m_style * m_sty = appstate->m_style;
     char buffer[16];
 
     printf("Event Triggered %d | Brightness status: %d\n", event.type,event.value);
 
     snprintf(buffer, sizeof(buffer) - 1, "%d%%", event.value);
 
-    erase_rect_area(appstate, 1570, 0, 30, appstate->height);
-    draw_rect(appstate, 1570, 0, 30, appstate->height);
-    render_text(appstate, 1570, appstate->height - 10, appstate->height - 15, buffer);
-    expose_rect_area(appstate, 1540, 0, 60, appstate->height);
+    int rect_x = base->x + base->rd_left;
+    int total_width = base->width + base->rd_right + base->rd_left;
+    char * text = get_str_by_format(style->format, buffer);
+
+    erase_rect_area(appstate, base->x , base->y, total_width, base->height);
+    draw_arc(appstate->cai_context, base, m_sty, base->width);
+
+    draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
+
+    draw_text(appstate->cai_context, &style->base, text);
+    free(text);
+
+    expose_rect_area(appstate, base->x, base->y, total_width, base->height);
 
     return NULL;
 }
 
 void * handle_volume(void * data){
+
     Event event = *(Event *) data;
     struct AppState * appstate = event.appState;
+
+    struct vol_style * style = event.styles;
+    struct base_style * base = &style->base;
+    struct m_style * m_sty = appstate->m_style;
     char buffer[16];
 
     printf("Event Triggered %d | Volume status: %d\n", event.type,event.value);
     snprintf(buffer, sizeof(buffer) - 1, "%d%%", event.value);
 
-    erase_rect_area(appstate, 1630, 0, 30, appstate->height);
-    draw_rect(appstate, 1630, 0, 30, appstate->height);
-    render_text(appstate, 1630, appstate->height - 10, appstate->height - 15, buffer);
-    expose_rect_area(appstate, 1600, 0, 60, appstate->height);
+    int rect_x = base->x + base->rd_left;
+    int total_width = base->width + base->rd_right + base->rd_left;
+    char * text = get_str_by_format(style->format, buffer);
+
+    erase_rect_area(appstate, base->x , base->y, total_width, base->height);
+    draw_arc(appstate->cai_context, base, m_sty, base->width);
+
+    draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
+
+    draw_text(appstate->cai_context, &style->base, text);
+    free(text);
+
+    expose_rect_area(appstate, base->x, base->y, total_width, base->height);
+
     
     return NULL;
 }
 
 void * handle_bluetooth(void * data){
+
     Event event = *(Event *) data;
     struct AppState * appstate = event.appState;
+
+    struct m_style * m_sty = appstate->m_style;
+    struct blue_style * style = event.styles;
+    struct base_style * base = &style->base;
+
     int * connections = (int *)event.data;
     char buffer[16];
 
     snprintf(buffer, sizeof(buffer) - 1, "%d", *connections);
     printf("Event Triggered %d | Bluetooth Connection: %d\n", event.type,*connections);
 
-    erase_rect_area(appstate, 1790, 0, 30, appstate->height);
-    draw_rect(appstate, 1790, 0, 30, appstate->height);
-    render_text(appstate, 1790, appstate->height - 10, appstate->height-15, buffer);
-    expose_rect_area(appstate, 1760, 0, 60, appstate->height);
+    int rect_x = base->x + base->rd_left;
+    int total_width = base->width + base->rd_right + base->rd_left;
+    char * text = get_str_by_format(style->format, buffer);
+
+    erase_rect_area(appstate, base->x , base->y, total_width, base->height);
+    draw_arc(appstate->cai_context, base, m_sty, base->width);
+
+    draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
+
+    draw_text(appstate->cai_context, &style->base, text);
+    free(text);
+
+    expose_rect_area(appstate, base->x, base->y, total_width, base->height);
 
     return NULL;
 }
 
 void * handle_network(void * data){
+
     Event event = *(Event *) data;
     struct AppState * appstate = event.appState;
-    
-    printf("Event Triggered %d | Wifi is %s\n", event.type,event.value? "Up":"Down");
+    struct net_style * style = event.styles;
+    struct base_style * base = &style->base;
+    struct m_style * m_sty = appstate->m_style;
 
-    erase_rect_area(appstate, 1730, 0, 30, appstate->height);
-    draw_rect(appstate, 1730, 0, 30, appstate->height);
-    render_text(appstate, 1730, appstate->height - 10, appstate->height - 15, event.value?"Up":"Down");
-    expose_rect_area(appstate, 1700, 0, 60, appstate->height);
+    printf("Event Triggered %d | Wifi is %s\n", event.type, event.value? "Up":"Down");
+    char * status = event.value? "Up": "Down";
+    
+    int rect_x = base->x + base->rd_left;
+    int total_width = base->width + base->rd_right + base->rd_left;
+    char * text = get_str_by_format(style->format, status);
+
+    erase_rect_area(appstate, base->x , base->y, total_width, base->height);
+    draw_arc(appstate->cai_context, base, m_sty, base->width);
+
+    draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
+
+    draw_text(appstate->cai_context, &style->base, text);
+    free(text);
+
+    expose_rect_area(appstate, base->x, base->y, total_width, base->height);
 
     return NULL;
 }
 
 void * handle_power(void * data){
+
+    
     Event event = *(Event *) data;
     struct AppState * appstate = event.appState;
+    struct m_style * m_sty = appstate->m_style;
+    struct power_style * style = event.styles;
+    struct base_style * base = &style->base;
     char power[6];
 
     switch (event.specifier) {
@@ -220,25 +410,38 @@ void * handle_power(void * data){
             printf("Event Triggered %d | Charge Status: %d\n", event.type,event.value);  
             break;
     }
+    
 
-    if(event.specifier == CHARGE_STATUS) return NULL;
+    if(event.specifier == CHARGE_STATUS) 
+        return NULL;
 
     snprintf(power, 5, "%d%%", event.value);
 
-    erase_rect_area(appstate, 1850, 0, 90, appstate->height);
+    int rect_x = base->x + base->rd_left;
+    int total_width = base->width + base->rd_right + base->rd_left;
+    char * text = get_str_by_format(style->format, power);
 
-    draw_rect(appstate, 1850, 0, 90, appstate->height);
+    erase_rect_area(appstate, base->x , base->y, total_width, base->height);
+    draw_arc(appstate->cai_context, base, m_sty, base->width);
 
-    render_text(appstate, 1850, appstate->height - 10, appstate->height-15, power);
+    draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
 
-    expose_rect_area(appstate, 1820, 0, 70, appstate->height);
+    draw_text(appstate->cai_context, &style->base, text);
+    free(text);
+
+    expose_rect_area(appstate, base->x, base->y, total_width, base->height);
+
 
     return NULL;
 }
 
 void * handle_mpd(void * data){
+
     Event event = *(Event *)data;
+    struct mpd_style * style = event.styles;
+    struct base_style * base = &style->base;
     struct AppState * appstate = event.appState;
+    struct m_style * m_sty = appstate->m_style;
 
     switch (event.specifier) {
         case MPD_UP:
@@ -255,27 +458,27 @@ void * handle_mpd(void * data){
             break;
     }
 
-    if(event.specifier != MPD_SENT) return NULL;
+    // if (style->base.enabled == 0)
+    //     return NULL;
 
-    erase_rect_area(appstate, 250, 0, 600, appstate->height);
+    if (event.specifier != MPD_SENT) 
+        return NULL;
 
-    cairo_set_source_rgba(appstate->cai_context, 1, 105.0/255.0, 196.0/255.0, ALPHA);
-    cairo_rectangle(appstate->cai_context,  250, 0, 600, appstate->height);
-    cairo_fill(appstate->cai_context);
+    int rect_x = base->x + base->rd_left;
+    int total_width = base->width + base->rd_right + base->rd_left;
+    char * text = get_str_by_format(style->format, event.data);
 
-    PangoLayout * layout = pango_cairo_create_layout(appstate->cai_context);
 
-	pango_layout_set_text(layout, event.data, -1);
-	pango_layout_set_font_description(layout, pango_font_description_from_string("Sans 17"));
+    erase_rect_area(appstate, base->x , base->y, total_width, base->height);
+    draw_arc(appstate->cai_context, base, m_sty, base->width);
 
-	cairo_set_source_rgba(appstate->cai_context, 1, 1, 1, ALPHA);
-	cairo_move_to(appstate->cai_context, 250, 0);
-    
-	pango_cairo_show_layout(appstate->cai_context, layout);
+    draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
 
-    expose_rect_area(appstate, 250, 0, 600, appstate->height);
+    draw_text(appstate->cai_context, &style->base, text);
+    free(text);
 
-	g_object_unref(layout);
+    expose_rect_area(appstate, base->x, base->y, total_width, base->height);
+
 
     return NULL;
 }
