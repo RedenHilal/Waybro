@@ -9,7 +9,7 @@ void * time_get(void* data){
     read(object->fd,drainbuff,sizeof(drainbuff));
 
     int * minutes_now = object->data;
-    *minutes_now = *minutes_now + 1;
+    *minutes_now += *(int *)drainbuff;
 
     write(object->pipe, &(Event){TIME,0,*minutes_now}, sizeof(Event));
     return NULL;

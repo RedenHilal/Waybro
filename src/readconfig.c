@@ -5,7 +5,16 @@ static void parse_tu(struct component_style * sty, char * val){
 
     char * endptr = NULL;
    
-    if(strchr(val,'.')){
+    if (strncmp(val, "0x", 2) == 0){
+        sty->int_val = strtol(val, &endptr, 16);
+
+        if (val == endptr)
+            goto is_str;
+
+        sty->type = INT;
+    }
+    
+    else if(strchr(val,'.')){
 
         sty->db_val = strtod(val, &endptr);
         if (val == endptr) 

@@ -110,15 +110,44 @@ static int get_fmt(char * dest, struct component_entries * entry){
     return 0;
 }
 
-static int get_ws_max(struct component_entries * entry){
+static void iter_ws_key(struct component_style * sty_fnd, int index,
+                        struct ws_style * ws_sty){
+    
+    switch (index) {
+        case 0:
+            ws_sty->max_ws = sty_fnd->int_val;
+            break;
+        case 1:
+            ws_sty->radius = sty_fnd->int_val;
+            break;
+        case 2:
+            ws_sty->h_color = sty_fnd->int_val;
+    }
+
+}
+
+static void get_ws_ent(struct component_entries * entry, struct ws_style * ws_sty){
+
+    char ws_key[][10] = {
+        "ws_max",
+        "radius",
+        "h_color"
+    };
 
     struct component_style * sty_fnd = NULL;
-    HASH_FIND_STR(entry->style, "ws_max",sty_fnd);
+    int size = sizeof(ws_key) / sizeof(ws_key[0]);
 
-    if(!sty_fnd)
-        return -1;
+    for (int i = 0; i < size; i++){
+        HASH_FIND_STR(entry->style, ws_key[i],sty_fnd);
 
-    return sty_fnd->int_val;
+        if(sty_fnd){
+            iter_ws_key(sty_fnd, i, ws_sty);
+            CLEAN_HASH(entry->style, sty_fnd);
+        }
+
+        sty_fnd = NULL;
+    }
+
 }
 
 void get_base_sty(struct base_style * base, struct component_entries * entry,
@@ -142,8 +171,6 @@ void get_base_sty(struct base_style * base, struct component_entries * entry,
         sty_fnd = NULL;
     }
 
-
-
 }
 
 
@@ -163,8 +190,11 @@ void * get_ws_sty(struct component_entries ** entries, struct m_style * main_sty
     get_base_sty(&ws_sty->base, sect_fnd, main_sty);
     printf("-=%d\n",ws_sty->base.rd_right);
 
-    ws_sty->max_ws = get_ws_max(sect_fnd);
+    get_ws_ent(sect_fnd, ws_sty);
     CLEAN_HASH(*entries, sect_fnd);
+
+    printf("max_ws:%d | radius: %d | color:%d\n",ws_sty->max_ws,ws_sty->radius,ws_sty->h_color);
+
 
     return ws_sty;
 }

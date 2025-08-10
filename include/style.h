@@ -3,6 +3,10 @@
 
 #include "uthash.h"
 
+#define GET_RED(color) (double)((color & 0xff000000) >> 24) / 255
+#define GET_GREEN(color) (double)((color & 0xff0000) >> 16) / 255
+#define GET_BLUE(color) (double)((color & 0xff00) >> 8) / 255
+
 enum {
     ARC_LEFT,
     ARC_RIGHT
@@ -65,6 +69,8 @@ struct base_style {
 struct ws_style {
     struct base_style base;
     int max_ws;
+    int radius;
+    int h_color;
 };
 
 struct tm_style {

@@ -23,16 +23,16 @@ static void draw_arc(cairo_t * cai_context, struct base_style * base, struct m_s
 }
 
 
-static void get_center(PangoLayout * layout, int * x, int * y,struct base_style * base){
+static void get_center(PangoLayout * layout, int * x, int * y, int width, int height, int dx, int dy){
     
-    int width, height;
-    pango_layout_get_size(layout, &width,&height);
+    int lwidth, lheight;
+    pango_layout_get_size(layout, &lwidth,&lheight);
 
-    width /= PANGO_SCALE;
-    height /= PANGO_SCALE;
+    lwidth /= PANGO_SCALE;
+    lheight /= PANGO_SCALE;
 
-    *x = base->x + (base->width - width) / 2;
-    *y = base->y + (base->height - height) / 2;
+    *x = dx + (width - lwidth) / 2;
+    *y = dy + (height - lheight) / 2;
 }
 
 static void draw_text(cairo_t * cai_context, struct base_style * style, char * text){
@@ -44,10 +44,29 @@ static void draw_text(cairo_t * cai_context, struct base_style * style, char * t
 	pango_layout_set_text(layout, text, -1);
 	pango_layout_set_font_description(layout, pango_font_description_from_string("Comic Neue 11"));
 
-    get_center( layout, &x, &y, style);
+    get_center( layout, &x, &y, style->width,style->height,style->x,style->y);
 
 	cairo_set_source_rgba(cai_context, 1, 1, 1, ALPHA);
 	cairo_move_to(cai_context, x, y);
+    
+	pango_cairo_show_layout(cai_context, layout);
+
+    g_object_unref(layout);    
+}
+
+static void draw_text_xy(cairo_t * cai_context, char * text,int x,int y, int width, int height){
+
+    int cx,cy;
+
+    PangoLayout * layout = pango_cairo_create_layout(cai_context);
+    
+	pango_layout_set_text(layout, text, -1);
+	pango_layout_set_font_description(layout, pango_font_description_from_string("Comic Neue 11"));
+
+    get_center(layout, &cx, &cy, width, height, x, y);
+
+	cairo_set_source_rgba(cai_context, 1, 1, 1, ALPHA);
+	cairo_move_to(cai_context, cx, cy);
     
 	pango_cairo_show_layout(cai_context, layout);
 
@@ -172,6 +191,7 @@ void * handle_workspace(void * data){
     struct m_style * main_sty = appState->m_style;
 
     int * workspace_data = (int*)event.data;
+    char buffer[4];
 
     int active_workspace = *workspace_data;
     int available_workspace = *(workspace_data+1);
@@ -208,26 +228,29 @@ void * handle_workspace(void * data){
 
     int rect_x = base->x + base->rd_left;
     int total_width = base->rd_left + base->width + base->rd_right;
+    int radius = style->radius;
+    int diameter = radius * 2;
 
     erase_rect_area(appState, base->x, 0, total_width, base->height);
 
-    draw_rect(appState, rect_x, base->y, 40 * available_workspace, base->height);
-    draw_arc(appState->cai_context, base, main_sty, 40 * available_workspace);
+    //draw_rect(appState, rect_x, base->y, radius * 2 * available_workspace, base->height);
+    draw_arc(appState->cai_context, base, main_sty, radius * 2 * available_workspace);
 
     
     for(int i = 0;i < available_workspace;i++){
 
+        snprintf(buffer, sizeof(buffer), "%d", workspaces[i]);
+        draw_text_xy(appState->cai_context, buffer, rect_x + i * diameter, base->y, diameter, base->height);
+        
         if(workspaces[i] == active_workspace){
-            erase_rect_area(appState, rect_x + i * 40, base->y, 40, base->height);
-            draw_rect_spc(appState, rect_x + i * 40, base->y, 40, base->height,
-                          main_sty->r ,main_sty->g,main_sty->b,main_sty->a);
+            cairo_set_source_rgba(appState->cai_context, GET_RED(style->h_color), GET_GREEN(style->h_color),
+            GET_BLUE(style->h_color), TO_ALPHA(main_sty->a));
+            cairo_arc(appState->cai_context, rect_x + i * diameter + radius, base->y + radius, radius, 0, 2 * M_PI);
+            cairo_fill(appState->cai_context);
             continue;
         }
 
-        cairo_set_source_rgba(appState->cai_context, 1.0, 106.0/255.0, 0, 0.7);
-        cairo_rectangle(appState->cai_context,rect_x + i*40,0,40,base->height);
-        cairo_set_line_width(appState->cai_context, 8.0);
-        cairo_stroke(appState->cai_context);
+        
 
     }
 

@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.16)
 project(sdl_panel C)
 
 set(CMAKE_C_STANDARD 99)
-set(CMAKE_C_FLAGS_DEBUG "-g -O0 -fsanitize=address -fno-omit-frame-pointer")
-set(CMAKE_BUILD_TYPE Debug)
 
 execute_process(
     COMMAND bash -c "../const.sh"
@@ -11,7 +9,7 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-separate_arguments(BKL_FLAGS)
+
 message(STATUS "BKL_FLAGS = ${BKL_FLAGS}")
 
 find_package(PkgConfig REQUIRED)
@@ -39,6 +37,7 @@ add_executable(mypanel
     src/proc.c
 )
 
+separate_arguments(BKL_FLAGS)
 
 add_compile_definitions(
     ${BKL_FLAGS}
@@ -53,3 +52,5 @@ target_link_libraries(mypanel PRIVATE
     dl
     m
 )
+
+install(TARGETS mypanel DESTINATION bin)
