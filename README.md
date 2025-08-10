@@ -35,9 +35,8 @@
 
 ```bash
 git clone https://github.com/yourname/Waybro.git
-cd Waybro/build
-cmake ..
-make
+chmod +x install.sh
+./install.sh
 ```
 
 ##  License
