@@ -17,7 +17,7 @@ pkg_check_modules(PANGOCAIRO REQUIRED pangocairo)
 
 include_directories(include)
 
-add_executable(mypanel 
+add_executable(waybro 
     src/displayer.c
     src/fetcher.c
     src/brightnessfetch.c
@@ -43,9 +43,9 @@ add_compile_definitions(
     ${BKL_FLAGS}
 )
 
-target_include_directories(mypanel PRIVATE ${PANGOCAIRO_INCLUDE_DIRS})
+target_include_directories(waybro PRIVATE ${PANGOCAIRO_INCLUDE_DIRS})
 
-target_link_libraries(mypanel PRIVATE
+target_link_libraries(waybro PRIVATE
     wayland-client
     ${PANGOCAIRO_LIBRARIES}
     cairo
@@ -53,4 +53,4 @@ target_link_libraries(mypanel PRIVATE
     m
 )
 
-install(TARGETS mypanel DESTINATION bin)
+install(TARGETS waybro DESTINATION bin)

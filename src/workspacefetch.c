@@ -46,7 +46,7 @@ int get_workspace_fd(){
     snprintf(sockpath, sizeof(sockpath) - 1, "%s/hypr/%s/.socket2.sock",xdg_path,his_path);
 
     int sockfd;
-    struct sockaddr_un hypr_sock;
+    struct sockaddr_un hypr_sock = {0};
     hypr_sock.sun_family = AF_UNIX;
     memcpy(hypr_sock.sun_path, sockpath, strlen(sockpath));
     if((sockfd = socket(AF_UNIX,SOCK_STREAM,0)) < 0)

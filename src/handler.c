@@ -10,14 +10,26 @@ static void draw_arc(cairo_t * cai_context, struct base_style * base, struct m_s
     int y = base->y + base->height/2;
    
     cairo_set_source_rgba(cai_context, TO_RGB_FMT(m_sty->r), TO_RGB_FMT(m_sty->g),
-                        TO_RGB_FMT(m_sty->b), TO_ALPHA(m_sty->a));    
+                        TO_RGB_FMT(m_sty->b), TO_ALPHA(m_sty->a));  
+                    
+    cairo_new_path(cai_context);
+    cairo_move_to(cai_context, lx, base->y + base->height);
 
     if (base->rd_left)
         cairo_arc(cai_context, lx, y, base->rd_left, M_PI_2, 3 * M_PI_2);
+    else
+        cairo_line_to(cai_context, lx, base->y);
+
+    cairo_line_to(cai_context, rx, base->y);
+
     if (base->rd_right)
         cairo_arc(cai_context, rx, y, base->rd_right, -M_PI_2, M_PI_2);
+    else
+        cairo_line_to(cai_context, rx, base->y + base->height);
 
+    cairo_line_to(cai_context, lx,base->y + base->height);
 
+    cairo_close_path(cai_context);
     cairo_fill(cai_context);
     
 }
@@ -282,8 +294,6 @@ void * handle_time(void * data){
     erase_rect_area(appstate, base->x , base->y, total_width, base->height);
     draw_arc(appstate->cai_context, base, m_sty, base->width);
 
-    draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
-
     draw_text(appstate->cai_context, &style->base, text);
     free(text);
 
@@ -314,8 +324,6 @@ void * handle_brightness(void * data){
     erase_rect_area(appstate, base->x , base->y, total_width, base->height);
     draw_arc(appstate->cai_context, base, m_sty, base->width);
 
-    draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
-
     draw_text(appstate->cai_context, &style->base, text);
     free(text);
 
@@ -343,8 +351,6 @@ void * handle_volume(void * data){
 
     erase_rect_area(appstate, base->x , base->y, total_width, base->height);
     draw_arc(appstate->cai_context, base, m_sty, base->width);
-
-    draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
 
     draw_text(appstate->cai_context, &style->base, text);
     free(text);
@@ -377,8 +383,6 @@ void * handle_bluetooth(void * data){
     erase_rect_area(appstate, base->x , base->y, total_width, base->height);
     draw_arc(appstate->cai_context, base, m_sty, base->width);
 
-    draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
-
     draw_text(appstate->cai_context, &style->base, text);
     free(text);
 
@@ -404,8 +408,6 @@ void * handle_network(void * data){
 
     erase_rect_area(appstate, base->x , base->y, total_width, base->height);
     draw_arc(appstate->cai_context, base, m_sty, base->width);
-
-    draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
 
     draw_text(appstate->cai_context, &style->base, text);
     free(text);
@@ -447,7 +449,7 @@ void * handle_power(void * data){
     erase_rect_area(appstate, base->x , base->y, total_width, base->height);
     draw_arc(appstate->cai_context, base, m_sty, base->width);
 
-    draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
+    //draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
 
     draw_text(appstate->cai_context, &style->base, text);
     free(text);
