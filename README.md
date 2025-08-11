@@ -36,7 +36,7 @@
 ```bash
 git clone https://github.com/yourname/Waybro.git
 chmod +x install.sh
-./install.sh
+./install.sh release
 ```
 
 ##  License
