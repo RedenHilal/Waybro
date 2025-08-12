@@ -483,9 +483,6 @@ void * handle_mpd(void * data){
             break;
     }
 
-    // if (style->base.enabled == 0)
-    //     return NULL;
-
     if (event.specifier != MPD_SENT) 
         return NULL;
 
@@ -496,8 +493,6 @@ void * handle_mpd(void * data){
 
     erase_rect_area(appstate, base->x , base->y, total_width, base->height);
     draw_arc(appstate->cai_context, base, m_sty, base->width);
-
-    draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
 
     draw_text(appstate->cai_context, &style->base, text);
     free(text);
