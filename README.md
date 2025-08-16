@@ -34,7 +34,7 @@
 ### Build
 
 ```bash
-git clone https://github.com/yourname/Waybro.git
+git clone https://github.com/RedenHilal/Waybro.git
 cd Waybro
 chmod +x install.sh
 ./install.sh release
