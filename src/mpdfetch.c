@@ -97,6 +97,8 @@ void *handle_idle(void * data){
 
 
 void * mpd_get(void * data){
+    static int n = 0;
+    printf("mpd_get triggered: %d\n", ++n);
     struct fd_object *object = data;
    
     struct sockaddr_un sock_addr;

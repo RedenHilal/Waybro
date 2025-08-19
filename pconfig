@@ -78,11 +78,30 @@ format={}
 rd_left=15
 
 [brightness]
-x=1635
+x=1640
 y=0
-width=50
+width=60
 height=100%
 font_size=20
 enabled=1
 format= {}
+
+[memory]
+x=1590
+y=0
+width=50
+height=100%
+enabled=1
+format= {}
+interval=15
+
+[temp]
+x=1525
+y=0
+width=50
+height=100%
+enabled=1
+format= {}
+interval=15
 rd_left=15
+

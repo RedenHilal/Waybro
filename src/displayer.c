@@ -15,7 +15,9 @@ static void * (*handler_group[DATA_COUNT])(void*data) =
     handle_bluetooth,
     handle_network,
     handle_power,
-    handle_mpd
+    handle_mpd,
+    handle_mem,
+    handle_temp
 };
 
 static void *(*get_styles[DATA_COUNT])(struct component_entries **,struct m_style*) = 
@@ -28,18 +30,13 @@ static void *(*get_styles[DATA_COUNT])(struct component_entries **,struct m_styl
     get_blue_sty,
     get_net_sty,
     get_power_sty,
-    get_mpd_sty
+    get_mpd_sty,
+    get_mem_sty,
+    get_temp_sty
 };
 
 static struct sigaction sigact = {
     handle_segv,
-    0,
-    0,
-    0
-};
-
-static struct sigaction sigacttou = {
-    handle_sigttou,
     0,
     0,
     0
@@ -76,9 +73,9 @@ static void get_style(void * styles[], struct component_entries ** entries,
 }
 
 int main(){
+    printf("Haihaiii\n");
     struct AppState appstate = {0};
-    sigaction(SIGSEGV, &sigact, NULL);
-    sigaction(SIGTTOU, &sigacttou, NULL);
+    //sigaction(SIGSEGV, &sigact, NULL);
 
     struct component_entries * cpn_entries = read_config(NULL, &appstate);
     struct m_style * m_style = translate_mstyle(&cpn_entries);
@@ -96,7 +93,7 @@ int main(){
     if (pipe(pipes) != 0) 
         ON_ERR("Pipe - main")
     
-    Thread_struct param = {pipes[1],&appstate,cpn_entries};
+    Thread_struct param = {pipes[1],&appstate,styles};
     
     
     setwayland(&appstate);

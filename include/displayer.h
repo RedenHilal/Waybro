@@ -36,7 +36,7 @@
 #include "xdg-shell-client.h"
 
 #define MAKS_EVENT 64
-#define DATA_COUNT 9
+#define DATA_COUNT 11
 #define ALPHA 0.8
 
 #define TO_DOUBLE(num) (double)num
@@ -65,7 +65,7 @@ typedef struct {
 typedef struct {
     int pipe;
     struct AppState * appState;
-    struct component_entries * styles;
+    void ** styles;
     // maybe another data
 } Thread_struct;
 
@@ -94,7 +94,7 @@ struct fd_object {
     void * data;
     int pipe;
     int epfd;
-    struct component_entries * styles;
+    void * styles;
     pthread_mutex_t * mutex;
 };
 
@@ -113,7 +113,9 @@ enum {
     BLUETOOTH,
     NETWORK,
     POWER,
-    MPD
+    MPD,
+    MEMORY,
+    TEMP
 };
 
 // specifier for event

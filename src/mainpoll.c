@@ -1,15 +1,18 @@
 #include "../include/fetcher.h"
+#include "../include/style.h"
 
-static int fd_count = 9;
+static const int fd_count = 11;
 
 static int events[] = {
     WORKSPACE, TIME, BRIGHTNESS, VOLUME,
-    BLUETOOTH, NETWORK, BATTERY_STATUS,MPD, CHARGE_STATUS
+    BLUETOOTH, NETWORK, BATTERY_STATUS,MPD, CHARGE_STATUS,
+    MEMORY, TEMP
 };
 
 static void * (*fds_handler[])(void * data) = {
     workspace_get, time_get, brightness_get, volume_get, 
-    bluetooth_get, network_get, power_get, mpd_get, ac_get
+    bluetooth_get, network_get, power_get, mpd_get, ac_get,
+    mem_get, temp_get
 };
 
 static int set_epoll(int * fds, struct fd_object *object){
@@ -26,7 +29,7 @@ static int set_epoll(int * fds, struct fd_object *object){
         if(res < 0) ON_ERR("epoll_ctl - mainpoll")
     }
 
-return epfd;
+    return epfd;
 }
 
 static void set_handler(int * fds, struct fd_object * object, Thread_struct * param){
@@ -37,7 +40,7 @@ static void set_handler(int * fds, struct fd_object * object, Thread_struct * pa
         object[i].handler = fds_handler[i];
         object[i].event = events[i];
         object[i].data = data;
-        object[i].styles = param->styles;
+        object[i].styles = param->styles[i];
     }
 }
 
@@ -56,15 +59,23 @@ void *mainpoll(void * data){
     int volume_fd = get_volume_fd();
     uint64_t power_mask = get_power_fd();
     uint64_t ac_mask = get_ac_fd();
+    int mem_fd = get_mem_fd(((struct mem_style *)param->styles[MEMORY])->it_sec);
+    int temp_fd = get_temp_fd(((struct temp_style *)param->styles[TEMP])->it_sec);
 
+    // int mem_fd = 0 | (mem_mask >> 32);
+    // int temp_fd = 0 | (temp_mask >> 32);
     int ac_fd = 0 | (ac_mask >> 32 );
     int power_fd = 0 | (power_mask >> 32);
+
+    // int mem_file = mem_mask & 0xffffffff;
+    // int temp_file = temp_mask & 0xffffffff;
     int power_file = power_mask & 0xffffffff;
     int ac_file = ac_mask & 0xffffffff;
 
     int fds[] = {
         workspace_fd, time_fd, brightness_fd, volume_fd, 
-        bluetooth_fd, net_fd, power_fd,mpd_fd, ac_fd
+        bluetooth_fd, net_fd, power_fd,mpd_fd, ac_fd,
+        mem_fd, temp_fd
     };
     
     //resources_init(param->appState);
@@ -72,18 +83,18 @@ void *mainpoll(void * data){
     power_ac_init(fd_handler_object,power_file,ac_file);
     
     int epfd = set_epoll(fds, fd_handler_object);
-    power_get(&fd_handler_object[6]);
-    ac_get(&fd_handler_object[8]);
-    time_fd_init(&fd_handler_object[1]);
-    mpd_get(&fd_handler_object[7]);
-    //network_get(&fd_handler_object[5]);
-    net_set(&fd_handler_object[5]);
-    brightness_get(&fd_handler_object[2]);
-
+    
     get_workspace_data(&fd_handler_object[0]);
+    time_fd_init(&fd_handler_object[1]);
+    brightness_get(&fd_handler_object[2]);
     get_volume_data(&fd_handler_object[3]);
     get_bluetooth_data(&fd_handler_object[4]);
-
+    net_set(&fd_handler_object[5]);
+    power_get(&fd_handler_object[6]);
+    mpd_get(&fd_handler_object[7]);
+    ac_get(&fd_handler_object[8]);
+    mem_get(&fd_handler_object[9]);
+    temp_get(&fd_handler_object[10]);
 
     while (1) {
         int ready = epoll_wait(epfd, events, MAKS_EVENT, -1);

@@ -110,6 +110,17 @@ static int get_fmt(char * dest, struct component_entries * entry){
     return 0;
 }
 
+static int get_interval( struct component_entries * entry){
+
+    struct component_style * sty_fnd = NULL;
+    HASH_FIND_STR(entry->style, "interval", sty_fnd);
+
+    if (!sty_fnd)
+        return 60;
+
+    return sty_fnd->int_val;
+}
+
 static void iter_ws_key(struct component_style * sty_fnd, int index,
                         struct ws_style * ws_sty){
     
@@ -369,4 +380,59 @@ void * get_mpd_sty(struct component_entries ** entries, struct m_style * main_st
 
 void * get_sys_sty(struct component_entries ** entries, struct m_style * main_sty){
     return NULL;
+}
+
+void * get_mem_sty(struct component_entries ** entries, struct m_style * main_sty){
+    char section[] = "memory";
+    struct mem_style * mem_sty = calloc(1, sizeof(struct mem_style));
+
+    struct component_entries * sect_fnd = NULL;
+    HASH_FIND_STR(*entries, section, sect_fnd);
+
+    if(!sect_fnd){
+        mem_sty->base.enabled = 0;
+        mem_sty->it_sec = 10;
+        return mem_sty;
+    }
+
+    get_base_sty(&mem_sty->base, sect_fnd, main_sty);
+    int res = get_fmt(mem_sty->format, sect_fnd);
+
+    if (res < 0)
+        mem_sty->base.enabled = 0;
+
+    res = get_interval(sect_fnd);
+    mem_sty->it_sec = res;
+
+    CLEAN_HASH(*entries, sect_fnd);
+
+    return mem_sty;
+
+}
+
+void * get_temp_sty(struct component_entries ** entries, struct m_style * main_sty){
+    char section[] = "temp";
+    struct temp_style * temp_sty = calloc(1, sizeof(struct temp_style));
+
+    struct component_entries * sect_fnd = NULL;
+    HASH_FIND_STR(*entries, section, sect_fnd);
+
+    if(!sect_fnd){
+        temp_sty->base.enabled = 0;
+        temp_sty->it_sec = 10;
+        return temp_sty;
+    }
+
+    get_base_sty(&temp_sty->base, sect_fnd, main_sty);
+    int res = get_fmt(temp_sty->format, sect_fnd);
+
+    if (res < 0)
+        temp_sty->base.enabled = 0;
+
+    res = get_interval(sect_fnd);
+    temp_sty->it_sec = res;
+
+    CLEAN_HASH(*entries, sect_fnd);
+
+    return temp_sty;
 }

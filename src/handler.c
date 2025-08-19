@@ -449,8 +449,6 @@ void * handle_power(void * data){
     erase_rect_area(appstate, base->x , base->y, total_width, base->height);
     draw_arc(appstate->cai_context, base, m_sty, base->width);
 
-    //draw_rect(appstate, base->x + base->rd_left, base->y, base->width, base->height);
-
     draw_text(appstate->cai_context, &style->base, text);
     free(text);
 
@@ -502,3 +500,71 @@ void * handle_mpd(void * data){
 
     return NULL;
 }
+
+void * handle_mem(void * data){
+
+    Event event = *(Event *)data;
+    struct mem_style * style = event.styles;
+    struct base_style * base = &style->base;
+    struct AppState * appstate = event.appState;
+    struct m_style * m_sty = appstate->m_style;
+
+    char buffer[16];
+    
+    int mem = event.value;
+
+    printf("Event Triggered %d | Memory: %d%%\n",event.type,mem);
+
+    snprintf(buffer, sizeof(buffer), "%d%%", mem);
+
+    int rect_x = base->x + base->rd_left;
+    int total_width = base->width + base->rd_right + base->rd_left;
+    char * text = get_str_by_format(style->format, buffer);
+
+    erase_rect_area(appstate, base->x , base->y, total_width, base->height);
+    draw_arc(appstate->cai_context, base, m_sty, base->width);
+
+    draw_text(appstate->cai_context, &style->base, text);
+    free(text);
+
+    expose_rect_area(appstate, base->x, base->y, total_width, base->height);
+
+
+    return NULL;
+
+}
+
+void * handle_temp(void * data){
+
+    Event event = *(Event *)data;
+    struct temp_style * style = event.styles;
+    struct base_style * base = &style->base;
+    struct AppState * appstate = event.appState;
+    struct m_style * m_sty = appstate->m_style;
+
+    char buffer[16];
+    
+    int temp = event.value;
+
+    printf("Event Triggered %d | Temp: %d%%\n",event.type,temp);
+    snprintf(buffer, sizeof(buffer), "%d%%", temp);
+
+    int rect_x = base->x + base->rd_left;
+    int total_width = base->width + base->rd_right + base->rd_left;
+    char * text = get_str_by_format(style->format, buffer);
+
+    erase_rect_area(appstate, base->x , base->y, total_width, base->height);
+    draw_arc(appstate->cai_context, base, m_sty, base->width);
+
+    draw_text(appstate->cai_context, &style->base, text);
+    free(text);
+
+    expose_rect_area(appstate, base->x, base->y, total_width, base->height);
+
+
+    return NULL;
+
+}
+
+
+

@@ -7,12 +7,20 @@
 #define CHARGE_PATH "/sys/class/power_supply/AC0/online"
 #define NET_PATH "/sys/class/net/wlp1s0/operstate"
 
+#define MEM_PATH "/proc/meminfo"
+
+#ifndef TEMP_PATH
+#define TEMP_PATH "/sys/class/thermal/thermal_zone0/temp"
+#endif
+
 // get fd(s)
 
 // power_fd uses 64 bit as the first 32 bit contain inotify fd that should be polled
 // and the next 32 bit shall be the fd that could be read from
 uint64_t get_power_fd();
 uint64_t get_ac_fd();
+int get_mem_fd(int it_sec);
+int get_temp_fd(int it_sec);
 
 int get_bluetooth_fd();
 int get_mpd_fd();
@@ -45,6 +53,10 @@ void * mpd_get(void * data);
 
 void * ac_get(void * data);
 
+void * mem_get(void * data);
+
+void * temp_get(void * data);
+
 // dirty init here
 
 void time_fd_init(void*data);
@@ -71,6 +83,8 @@ void * handle_power(void*);
 void * handle_time(void*);
 void * handle_mpd(void*);
 void * handle_idle(void*);
+void * handle_mem(void*);
+void * handle_temp(void*);
 
 // starter function 
 

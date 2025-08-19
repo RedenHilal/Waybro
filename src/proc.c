@@ -13,8 +13,3 @@ void handle_segv(int num){
 
     _exit(0);
 }
-
-void handle_sigttou(int num){
-
-    exit(0);
-}

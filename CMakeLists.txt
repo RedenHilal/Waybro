@@ -35,6 +35,8 @@ add_executable(waybro
     src/readconfig.c
     src/style.c
     src/proc.c
+    src/memfetch.c
+    src/tempfetch.c
 )
 
 separate_arguments(BKL_FLAGS)

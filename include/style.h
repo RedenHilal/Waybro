@@ -108,6 +108,18 @@ struct mpd_style {
     char format[64];
 };
 
+struct mem_style {
+    struct base_style base;
+    char format[64];
+    int it_sec;
+};
+
+struct temp_style {
+    struct base_style base;
+    char format[64];
+    int it_sec;
+};
+
 
 void * get_sys_sty(struct component_entries ** entries, struct m_style * m_style);
 void * get_ws_sty(struct component_entries ** entries, struct m_style * m_style);
@@ -118,5 +130,7 @@ void * get_blue_sty(struct component_entries ** entries, struct m_style * m_styl
 void * get_net_sty(struct component_entries ** entries, struct m_style * m_style);
 void * get_power_sty(struct component_entries ** entries, struct m_style * m_style);
 void * get_mpd_sty(struct component_entries ** entries, struct m_style * m_style);
+void * get_mem_sty(struct component_entries ** entries, struct m_style * m_style);
+void * get_temp_sty(struct component_entries ** entries, struct m_style * m_style);
 
 #endif
