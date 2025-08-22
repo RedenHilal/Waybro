@@ -35,7 +35,7 @@ void * mem_get(void * data){
     mem_used = strtod(buffer + space_begin, &endptr);
     
     mem_free = (mem_now - mem_used) * 100 / mem_now;;
-    fseek(mem_fd, 0, SEEK_SET);
+    fclose(mem_fd);
 
     write(object->pipe, &(Event){MEMORY,1, mem_free},sizeof(Event));
 
