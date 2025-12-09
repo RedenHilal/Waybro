@@ -1,4 +1,4 @@
-#include "../include/fetcher.h"
+#include "fetcher.h"
 
 void set_nonblock(int fd){
     int flag = fcntl(fd, F_GETFL, 0);
@@ -21,92 +21,93 @@ void * sysclick_get(void* data){
     return NULL;
 }
 
-void * power_get(void* data){
-    struct fd_object * object = data;
-    int charge;
-    char drainbuff[512];
+int power_get(sd_bus_message * m, void * data, sd_bus_error * ret_error){
+    int pipe = *(int *)data;
+    
+	static int file_fd = 0;
+	static int battery_last = 0;
+
+	if (file_fd == 0){
+		file_fd = open(POWER_PATH, 0);
+	}
+
     char buffer[4];
     
-    read(object->fd,drainbuff,sizeof(drainbuff)) ;
-
-    int file_monitor = *(int *) object->data;
-    int *last_power =  object->data;
-    last_power++;
-
-    int bytereads = read(file_monitor,buffer,sizeof(buffer));
-    lseek(file_monitor, SEEK_SET, 0);
+    int bytereads = read(file_fd, buffer, sizeof(buffer));
+    lseek(file_fd, SEEK_SET, 0);
     buffer[bytereads] = 0;
-    charge = atoi(buffer);
+    int battery_now = atoi(buffer);
 
-    if(*last_power == charge) return NULL;
-    *last_power = charge;
-    write(object->pipe, &(Event){POWER,BATTERY_STATUS,charge}, sizeof(Event));
+    if(battery_now == battery_last) return 0;
+    battery_last = battery_now;
+    write(pipe, &(Event){POWER, BATTERY_STATUS, battery_now}, sizeof(Event));
     
-    return NULL;
+    return 0;
 }
 
-void * ac_get(void * data){
-    struct fd_object * object = data;
-    int charge;
-    char drainbuff[512];
-    char buffer[4];
-    
-    read(object->fd,drainbuff,sizeof(drainbuff)) ;
+int ac_get(sd_bus_message * m, void * data, sd_bus_error * ret_error){
+	int pipe = *(int *) data;
 
-    int charge_monitor = *(int *) object->data;
-    int bytereads = read(charge_monitor,buffer,sizeof(buffer));
-    lseek(charge_monitor, SEEK_SET, 0);
-    charge = buffer[0] - 48;
-    write(object->pipe, &(Event){POWER,CHARGE_STATUS,charge}, sizeof(Event));
+	static int charge = -1;
+	static int file_fd = 0;
+
+	if (file_fd == 0){
+		file_fd = open(CHARGE_PATH, 0);
+	}
+	
+	char buffer[4];
     
-    return NULL;
+    int bytereads = read(file_fd, buffer, sizeof(buffer));
+    lseek(file_fd, SEEK_SET, 0);
+
+    int charge_now = buffer[0] - 48;
+
+	if (charge == charge_now){
+		return 0;
+	}
+	
+	charge = charge_now;
+    write(pipe, &(Event){POWER,CHARGE_STATUS,charge}, sizeof(Event));
+    
+    return 0;
 }
 
 
-uint64_t get_power_fd(){
-    int inotify_fd = inotify_init1(IN_CLOEXEC);
+int get_power_fd(void * data){
+	sd_bus * bus;
+	sd_bus_slot * slot;
+	sd_bus_default_system(&bus);
+
+	sd_bus_match_signal(bus,
+						&slot,
+						NULL,
+						"/org/freedesktop/UPower/devices/battery_BAT0",
+						NULL,
+						"PropertiesChanged",
+						power_get,
+						data);
+
+	int fd = sd_bus_get_fd(bus);
    
-    if (inotify_fd < 0) 
-        ON_ERR("BS inot - power")
-
-    if (inotify_add_watch(inotify_fd, POWER_PATH, IN_CLOSE_NOWRITE) < 0) 
-        ON_ERR("Add watch - batt file")
-
-    set_nonblock(inotify_fd);
-   
-    int file_fd = open(POWER_PATH, O_RDONLY | IN_CLOEXEC);
-
-    uint64_t mask = 0;
-    mask = mask | inotify_fd;
-    mask = mask << 32;
-    mask = mask | file_fd;
-    return mask;
+    return fd;
 }
 
-uint64_t get_ac_fd(){
-    int ac_inot = inotify_init1(IN_CLOEXEC);
-    if (ac_inot < 0)
-        ON_ERR("AC inot - power")
-    if(inotify_add_watch(ac_inot,CHARGE_PATH , IN_CLOSE_NOWRITE) < 0) 
-    ON_ERR("Add watch - Charge file")
+int get_ac_fd(void * data){
+	sd_bus * bus;
+	sd_bus_slot * slot;
+	sd_bus_default_system(&bus);
 
-    int file_fd = open(CHARGE_PATH, O_RDONLY | IN_CLOEXEC);
+	sd_bus_match_signal(bus,
+						&slot,
+						NULL,
+						"/org/freedesktop/UPower/devices/line_power_AC0",
+						NULL,
+						"PropertiesChanged",
+						ac_get,
+						data);
 
-    set_nonblock(ac_inot);
+	int fd = sd_bus_get_fd(bus);
 
-    uint64_t mask = 0;
-    mask = ac_inot;
-    mask = mask << 32;
-    mask = mask | file_fd;
-    
-    return mask;
+	return fd;
 }
 
-void power_ac_init(struct fd_object * object, int power_file, int ac_file){
-    int * power_file_fd = object[6].data;
-    *power_file_fd = power_file;
-
-    int * ac_file_fd = object[8].data;
-    *ac_file_fd = ac_file;
-    return;
-}
