@@ -1,77 +1,125 @@
-#include "../include/fetcher.h"
 
-static pid_t pid;
+#include "fetcher.h" 
+#include <pulse/context.h>
+#include <pulse/mainloop.h>
+#include <pulse/subscribe.h>
+#include <pulse/def.h>
+#include <pulse/volume.h>
+#include <pulse/introspect.h>
 
-void * volume_get(void* data){
-    struct fd_object * object = data;
-    char drainbuff[512];
-    char buffer[256];
+struct pa_state{
+	pa_context * context;
+	pa_mainloop * ml;
+	pa_mainloop_api * mla;
 
-    read(object->fd,drainbuff,sizeof(drainbuff)) ;
-    if(strncmp(drainbuff+7, "change' on sink ", 15) != 0) return NULL;
+	int wpipe;
+};
 
-    FILE * get_vol = popen("pactl get-sink-volume @DEFAULT_SINK@", "r");
+static struct pa_state * ps;
+static pthread_t tid;
+static int retval;
 
-    if(get_vol == NULL) ON_ERR("crash")
+static void pa_sink_info_cb(pa_context * c, const pa_sink_info * i, int eol, void * data){
+	if(eol){
+		return;
+	}
+	pa_volume_t vol_raw = pa_cvolume_avg(&i->volume);
+	int vol_now = (vol_raw * 100) / PA_VOLUME_NORM;
 
-    fgets(buffer, sizeof(buffer) - 1, get_vol);
-    int startvol = strcspn(buffer, "/") + 3;
 
-    int *last_volume = object->data;
-    int volume = atoi(buffer + startvol);
-    if(*last_volume == volume) {
-        pclose(get_vol);
-        return NULL;
-    }
-    *last_volume = volume;
-
-    write(object->pipe,&(Event){VOLUME,0,volume},sizeof(Event));
-
-    pclose(get_vol);
-
-    return NULL;
+	write(ps->wpipe, &vol_now, sizeof(int));
+	printf("triggered sink vol: %d\n", vol_now);
 }
+
+static void pa_server_info_cb(pa_context * c, const pa_server_info * i, void * data){
+	const char * default_sink = i->default_sink_name;
+
+	printf("triggered server\n");
+	pa_operation * op = pa_context_get_sink_info_by_name(c, default_sink, pa_sink_info_cb, data);	
+
+}
+
+static void pa_subscribe_cb(pa_context * c, pa_subscription_event_type_t t, uint32_t idx, void * data){
+
+	t = t & PA_SUBSCRIPTION_EVENT_FACILITY_MASK;
+	printf("triggered subscribe\n");
+	switch (t){
+			case PA_SUBSCRIPTION_EVENT_SINK:
+					pa_context_get_server_info(c, pa_server_info_cb, data);
+	}
+}
+
+static void pa_success_cb(pa_context * c, int success, void * data){
+
+	pa_context_set_subscribe_callback(c, pa_subscribe_cb, NULL);	
+	printf("triggered success\n");
+}
+
+static void pa_state_cb(pa_context * c, void * data){
+	pa_context_state_t state = pa_context_get_state(c);
+
+	printf("triggered state %d\n", state);
+	switch (state){
+		case PA_CONTEXT_READY:		
+				pa_context_get_server_info(c, pa_server_info_cb, data);
+				pa_context_subscribe(c, PA_SUBSCRIPTION_MASK_SINK, pa_success_cb, NULL);
+				printf("triggered successs\n");
+				break;
+		case PA_CONTEXT_FAILED:
+				ON_ERR("pa_failed");
+		default:
+				// idk
+	}
+}
+
+static void * pa_listener(void * data){
+	printf("gai\n");
+	pa_mainloop * ml = pa_mainloop_new();    
+	pa_mainloop_api * mla = pa_mainloop_get_api(ml);
+	pa_context * pactx = pa_context_new(mla, "waybro");
+
+	ps->context = pactx;
+	ps->ml = ml;
+	ps->mla = mla;
+
+	pa_context_set_state_callback(pactx, pa_state_cb, NULL);
+	if(pa_context_connect(pactx, NULL, 0, NULL) < 0) 
+			ON_ERR("pa_connect")
+	if(pa_mainloop_run(ps->ml, &retval) < 0)
+			ON_ERR("pa ml run thread")
+
+	return NULL;
+}
+
+
 
 int get_volume_fd(){
     
-    int pipes[2];
-    if (pipe(pipes) != 0) ON_ERR("pipes - vol fetch")
+	int pipes[2];
+	if(pipe(pipes) != 0)
+			ON_ERR("pipe pulse")
 
-    if ((pid = fork()) < 0) ON_ERR("fork - vol fetch")
+	ps = malloc(sizeof(struct pa_state));
+	ps->wpipe = pipes[1];
 
-    // child process
-    else if (pid == 0){
-        close(pipes[0]);
-        dup2(pipes[1], STDOUT_FILENO);
-        close(pipes[1]);
-
-        execlp("/bin/pactl", "pactl", "subscribe",NULL);
-
-        ON_ERR("exec - vol fetch")
-    }
-
-    proc_reg(pid);
-
-    return pipes[0];
+	return pipes[0];
 }
 
+
+
 void get_volume_data(void * data){
-    struct fd_object * object = data;
-    int * object_data = object->data;
-    char buffer[512] ;
 
-    FILE * res = popen("pactl get-sink-volume @DEFAULT_SINK@", "r");
 
-    if(res == NULL) ON_ERR("crash")
 
-    fgets(buffer, sizeof(buffer) - 1, res);
-    int startvol = strcspn(buffer, "/") + 3;
+	pthread_create(&tid, NULL, pa_listener, NULL);
+}
 
-    int *last_volume = object->data;
-    int volume = atoi(buffer + startvol);
-    *last_volume = volume;
 
-    write(object->pipe,&(Event){VOLUME,0,volume, object->data},sizeof(Event));
+void * volume_get(void* data){
+	struct fd_object * object = data;
+	int vol;
 
-    pclose(res);
+	read(object->fd, &vol, sizeof(int));
+	write(object->pipe, &(Event){VOLUME, 0, vol}, sizeof(Event));
+    return NULL;
 }

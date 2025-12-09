@@ -13,9 +13,10 @@ execute_process(
 message(STATUS "BKL_FLAGS = ${BKL_FLAGS}")
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(PANGOCAIRO REQUIRED pangocairo)
 
-include_directories(include)
+pkg_check_modules(PANGOCAIRO REQUIRED pangocairo)
+pkg_check_modules(SYSTEMD REQUIRED libsystemd)
+pkg_check_modules(PULSE REQUIRED libpulse)
 
 add_executable(waybro 
     src/displayer.c
@@ -37,6 +38,7 @@ add_executable(waybro
     src/proc.c
     src/memfetch.c
     src/tempfetch.c
+	src/sd_bus_wrapper.c
 )
 
 separate_arguments(BKL_FLAGS)
@@ -45,12 +47,20 @@ add_compile_definitions(
     ${BKL_FLAGS}
 )
 
-target_include_directories(waybro PRIVATE ${PANGOCAIRO_INCLUDE_DIRS})
+target_include_directories(waybro PRIVATE include)
+
+target_include_directories(waybro PRIVATE 
+				${PANGOCAIRO_INCLUDE_DIRS}
+				${SYSTEMD_INCLUDE_DIRS}
+				${PULSE_INCLUDE_DIRSS}
+)
 
 target_link_libraries(waybro PRIVATE
     wayland-client
     ${PANGOCAIRO_LIBRARIES}
-    cairo
+    ${SYSTEMD_LIBRARIES}
+	${PULSE_LIBRARIES}
+	cairo
     dl
     m
 )
