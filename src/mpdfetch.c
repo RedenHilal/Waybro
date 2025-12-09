@@ -1,4 +1,4 @@
-#include "../include/fetcher.h"
+#include "fetcher.h"
 
 static char * mpd_sock_path;
 static char * mpd_dir_path;

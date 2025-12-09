@@ -1,6 +1,7 @@
-#include "../include/displayer.h"
-#include "../include/fetcher.h"
-#include "../include/style.h"
+#include "displayer.h"
+#include "fetcher.h"
+#include "style.h"
+#include "core.h"
 
 // Array of function to handle events type
 // index is matched by its corresponding enum value
@@ -115,8 +116,7 @@ int main(){
                     perror("Err on recv\n");
                     continue;
                 }
-
-                dump[i].appState = &appstate;
+				dump[i].appstate = &appstate;
                 dump[i].styles = styles[dump[i].type];
                 handler_group[dump[i].type](&dump[i]);
                 

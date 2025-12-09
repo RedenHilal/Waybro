@@ -1,5 +1,5 @@
-#include "../include/fetcher.h"
-#include "../include/style.h"
+#include "fetcher.h"
+#include "style.h"
 
 static void parse_tu(struct component_style * sty, char * val){
 

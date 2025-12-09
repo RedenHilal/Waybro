@@ -133,4 +133,5 @@ void * get_mpd_sty(struct component_entries ** entries, struct m_style * m_style
 void * get_mem_sty(struct component_entries ** entries, struct m_style * m_style);
 void * get_temp_sty(struct component_entries ** entries, struct m_style * m_style);
 
+
 #endif

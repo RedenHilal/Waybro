@@ -1,4 +1,4 @@
-#include "../include/style.h"
+#include "style.h"
 #include <stdio.h>
 
 #define CLEAN_HASH(head,delptr) {HASH_DEL(head,delptr);free(delptr);}

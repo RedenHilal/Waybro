@@ -1,4 +1,4 @@
-#include "../include/fetcher.h"
+#include "fetcher.h"
 
 void * brightness_get(void* data){
     struct fd_object *object = data;

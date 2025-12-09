@@ -1,5 +1,6 @@
-#include "../include/displayer.h"
-#include "../include/style.h"
+#include "displayer.h"
+#include "style.h"
+#include "core.h"
 
 // functions belows (until end of section) are responsible for drawing pixels
 // might move it to other function if cairo do some mess

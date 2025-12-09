@@ -1,4 +1,4 @@
-#include "../include/displayer.h"
+#include "displayer.h"
 
 static struct proc_register proc;
 

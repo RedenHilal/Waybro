@@ -1,4 +1,4 @@
-#include "../include/fetcher.h"
+#include "fetcher.h"
 
 int get_mem_fd(int it_sec){
     int time_fd = get_time_fd();

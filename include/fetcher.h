@@ -15,10 +15,8 @@
 
 // get fd(s)
 
-// power_fd uses 64 bit as the first 32 bit contain inotify fd that should be polled
-// and the next 32 bit shall be the fd that could be read from
-uint64_t get_power_fd();
-uint64_t get_ac_fd();
+int get_power_fd(void * data);
+int get_ac_fd(void * data);
 int get_mem_fd(int it_sec);
 int get_temp_fd(int it_sec);
 
@@ -45,17 +43,18 @@ void * bluetooth_get(void* data);
 
 void * network_get(void* data);
 
-void * power_get(void* data);
-
 void * time_get(void* data);
 
 void * mpd_get(void * data);
 
-void * ac_get(void * data);
-
 void * mem_get(void * data);
 
 void * temp_get(void * data);
+
+void * sd_bus_handler(void * data);
+
+int ac_get(sd_bus_message * m, void * data, sd_bus_error * err);
+int power_get(sd_bus_message * m, void * data, sd_bus_error * err);
 
 // dirty init here
 
@@ -66,10 +65,6 @@ void power_ac_init(struct fd_object*, int,int);
 
 void *mainpoll(void * data);
 
-// wayland mess stored here
-
-int setwayland(struct AppState*);
-void draw (struct AppState *);
 
 // handler function
 
@@ -94,9 +89,6 @@ void get_volume_data(void *);
 
 // clean up function
 
-// config parsing
-struct component_entries * read_config(char * path, struct AppState * appState);
-struct m_style * translate_mstyle(struct component_entries **);
 
 // misc
 void resources_init(void *);

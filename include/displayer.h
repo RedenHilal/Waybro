@@ -18,6 +18,7 @@
 
 #include <fcntl.h>
 #include <pthread.h>
+#include <systemd/sd-bus.h>
 
 #include <time.h>
 #include <signal.h>
@@ -27,13 +28,6 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#include <cairo/cairo.h>
-#include <pango/pango.h>
-#include <pango/pangocairo.h>
-
-#include <wayland-client.h>
-#include "wlr-layer-shell.h"
-#include "xdg-shell-client.h"
 
 #define MAKS_EVENT 64
 #define DATA_COUNT 11
@@ -44,10 +38,11 @@
 #define INV_RGB(num) 255.0-TO_DOUBLE(num)
 #define TO_ALPHA(num) TO_DOUBLE(num)/100.0
 
-#define ON_ERR(trigger) {printf("ERR on: %s\n", trigger); exit(1);}
+#define ON_ERR(trigger) {printf("ERR on: %s\n", trigger); perror(trigger); exit(1);}
 #define INT_BITS (sizeof(int) * 8)
 
 #define PASSABLE_EVENT_SIZE offsetof(Event, appState)
+
 
 typedef struct {
     int type; // fill it with enum event
@@ -58,34 +53,10 @@ typedef struct {
      // appstate is passed from main and should not be overwriten
      // therefore the usage of PASSABLE_EVENT_SIZE constant
 
-     struct AppState * appState; 
-     void * styles;
+	struct AppState * appstate;
+	void * styles;
+
 } Event;
-
-typedef struct {
-    int pipe;
-    struct AppState * appState;
-    void ** styles;
-    // maybe another data
-} Thread_struct;
-
-struct AppState{
-    struct wl_display * display;
-    struct wl_registry * registry;
-    struct wl_surface * surface;
-    struct wl_compositor * compositor; 
-    struct wl_shm * shm;
-    struct wl_buffer * buffer;
-    struct wl_output * output;
-    struct xdg_wm_base * base;
-    struct zwlr_layer_shell_v1 * zwlr_sh;
-    struct zwlr_layer_surface_v1 * zwlr_srfc;
-    uint8_t * buffptr;
-
-    cairo_surface_t * cai_srfc;
-    cairo_t * cai_context;
-    struct m_style * m_style;
-};
 
 struct fd_object {
     int fd;

@@ -1,4 +1,4 @@
-#include "../include/fetcher.h"
+#include "fetcher.h"
 
 static pid_t pid;
 

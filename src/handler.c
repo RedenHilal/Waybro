@@ -1,5 +1,6 @@
-#include "../include/fetcher.h"
-#include "../include/style.h"
+#include "fetcher.h"
+#include "style.h"
+#include "core.h"
 
 cairo_surface_t * resources;
 
@@ -128,42 +129,42 @@ static inline void erase_rect_area(struct AppState* appstate, int x,int y,int wi
     cairo_restore(appstate->cai_context);
 }
 
-static inline void expose_rect_area(struct AppState * appstate,int x,int y, int width, int height){
-    wl_surface_attach(appstate->surface,appstate->buffer,0,0);
-    wl_surface_damage(appstate->surface, x,  y, width, height);
-    wl_surface_commit(appstate->surface);
-}
+		static inline void expose_rect_area(struct AppState * appstate,int x,int y, int width, int height){
+			wl_surface_attach(appstate->surface,appstate->buffer,0,0);
+			wl_surface_damage(appstate->surface, x,  y, width, height);
+			wl_surface_commit(appstate->surface);
+		}
 
-static inline void render_text(struct AppState * appstate, int x, int y, int fontsize, const char* string){
-    //cairo_select_font_face(appstate->cai_context, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(appstate->cai_context,fontsize);
-    cairo_set_source_rgba(appstate->cai_context, 1, 1, 1, ALPHA);
-    cairo_move_to(appstate->cai_context, x, y);
-    cairo_show_text(appstate->cai_context, string);
-}
+		static inline void render_text(struct AppState * appstate, int x, int y, int fontsize, const char* string){
+			//cairo_select_font_face(appstate->cai_context, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+			cairo_set_font_size(appstate->cai_context,fontsize);
+			cairo_set_source_rgba(appstate->cai_context, 1, 1, 1, ALPHA);
+			cairo_move_to(appstate->cai_context, x, y);
+			cairo_show_text(appstate->cai_context, string);
+		}
 
-static inline void draw_rect(struct AppState * appstate, int x, int y, int width, int height){
-    
-    struct m_style * m_sty = appstate->m_style;
-    cairo_set_source_rgba(appstate->cai_context, TO_RGB_FMT(m_sty->r), TO_RGB_FMT(m_sty->g),
-                          TO_RGB_FMT(m_sty->b), TO_ALPHA(m_sty->a));
+		static inline void draw_rect(struct AppState * appstate, int x, int y, int width, int height){
+			
+			struct m_style * m_sty = appstate->m_style;
+			cairo_set_source_rgba(appstate->cai_context, TO_RGB_FMT(m_sty->r), TO_RGB_FMT(m_sty->g),
+								  TO_RGB_FMT(m_sty->b), TO_ALPHA(m_sty->a));
 
-    cairo_rectangle(appstate->cai_context, x, y, width, height);
-    cairo_fill(appstate->cai_context);
-}
+			cairo_rectangle(appstate->cai_context, x, y, width, height);
+			cairo_fill(appstate->cai_context);
+		}
 
-static inline void draw_rect_spc(struct AppState * appstate, int x, int y, int width, int height,
-                          uint8_t r, uint8_t g, uint8_t b, uint8_t a){
-    cairo_set_source_rgba(appstate->cai_context, TO_RGB_FMT(r), TO_RGB_FMT(g),
-                          TO_RGB_FMT(b), TO_ALPHA(a));
+		static inline void draw_rect_spc(struct AppState * appstate, int x, int y, int width, int height,
+								  uint8_t r, uint8_t g, uint8_t b, uint8_t a){
+			cairo_set_source_rgba(appstate->cai_context, TO_RGB_FMT(r), TO_RGB_FMT(g),
+								  TO_RGB_FMT(b), TO_ALPHA(a));
 
-    cairo_rectangle(appstate->cai_context, x, y, width, height);
-    cairo_fill(appstate->cai_context);
-}
+			cairo_rectangle(appstate->cai_context, x, y, width, height);
+			cairo_fill(appstate->cai_context);
+		}
 
-static void render_resource(void * data, const char * path, int x, int y, int width,int height){
-    struct AppState * appstate = data;
-    resources = cairo_image_surface_create_from_png(path);
+		static void render_resource(void * data, const char * path, int x, int y, int width,int height){
+			struct AppState * appstate = data;
+			resources = cairo_image_surface_create_from_png(path);
     if(cairo_surface_status(resources) != CAIRO_STATUS_SUCCESS)
         ON_ERR("load resources - handler")
 
@@ -197,10 +198,10 @@ void * handle_sysclick(void * data){
 void * handle_workspace(void * data){
 
     Event event = *(Event *) data;
-    struct AppState * appState = event.appState;
+    struct AppState * appstate = event.appstate;
     struct ws_style * style = event.styles;
     struct base_style * base = &style->base;
-    struct m_style * main_sty = appState->m_style;
+    struct m_style * main_sty = appstate->m_style;
 
     int * workspace_data = (int*)event.data;
     char buffer[4];
@@ -243,22 +244,22 @@ void * handle_workspace(void * data){
     int radius = style->radius;
     int diameter = radius * 2;
 
-    erase_rect_area(appState, base->x, 0, total_width, base->height);
+    erase_rect_area(appstate, base->x, 0, total_width, base->height);
 
-    //draw_rect(appState, rect_x, base->y, radius * 2 * available_workspace, base->height);
-    draw_arc(appState->cai_context, base, main_sty, radius * 2 * available_workspace);
+    //draw_rect(appstate, rect_x, base->y, radius * 2 * available_workspace, base->height);
+    draw_arc(appstate->cai_context, base, main_sty, radius * 2 * available_workspace);
 
     
     for(int i = 0;i < available_workspace;i++){
 
         snprintf(buffer, sizeof(buffer), "%d", workspaces[i]);
-        draw_text_xy(appState->cai_context, buffer, rect_x + i * diameter, base->y, diameter, base->height);
+        draw_text_xy(appstate->cai_context, buffer, rect_x + i * diameter, base->y, diameter, base->height);
         
         if(workspaces[i] == active_workspace){
-            cairo_set_source_rgba(appState->cai_context, GET_RED(style->h_color), GET_GREEN(style->h_color),
+            cairo_set_source_rgba(appstate->cai_context, GET_RED(style->h_color), GET_GREEN(style->h_color),
             GET_BLUE(style->h_color), TO_ALPHA(main_sty->a));
-            cairo_arc(appState->cai_context, rect_x + i * diameter + radius, base->y + radius, radius, 0, 2 * M_PI);
-            cairo_fill(appState->cai_context);
+            cairo_arc(appstate->cai_context, rect_x + i * diameter + radius, base->y + radius, radius, 0, 2 * M_PI);
+            cairo_fill(appstate->cai_context);
             continue;
         }
 
@@ -266,7 +267,7 @@ void * handle_workspace(void * data){
 
     }
 
-    expose_rect_area(appState, base->x , 0, total_width , base->height);
+    expose_rect_area(appstate, base->x , 0, total_width , base->height);
 
     return NULL;
 }
@@ -277,7 +278,7 @@ void * handle_time(void * data){
 
 
     int minutes = event.value;
-    struct AppState * appstate = event.appState;
+    struct AppState * appstate = event.appstate;
     struct m_style * m_sty = appstate->m_style;
     struct tm_style * style = event.styles;
     struct base_style * base = &style->base;
@@ -306,7 +307,7 @@ void * handle_brightness(void * data){
 
 
     Event event = *(Event *) data;
-    struct AppState * appstate = event.appState;
+    struct AppState * appstate = event.appstate;
 
     struct brightness_style * style = event.styles;
     struct base_style * base = &style->base;
@@ -335,7 +336,7 @@ void * handle_brightness(void * data){
 void * handle_volume(void * data){
 
     Event event = *(Event *) data;
-    struct AppState * appstate = event.appState;
+    struct AppState * appstate = event.appstate;
 
     struct vol_style * style = event.styles;
     struct base_style * base = &style->base;
@@ -364,7 +365,7 @@ void * handle_volume(void * data){
 void * handle_bluetooth(void * data){
 
     Event event = *(Event *) data;
-    struct AppState * appstate = event.appState;
+    struct AppState * appstate = event.appstate;
 
     struct m_style * m_sty = appstate->m_style;
     struct blue_style * style = event.styles;
@@ -394,7 +395,7 @@ void * handle_bluetooth(void * data){
 void * handle_network(void * data){
 
     Event event = *(Event *) data;
-    struct AppState * appstate = event.appState;
+    struct AppState * appstate = event.appstate;
     struct net_style * style = event.styles;
     struct base_style * base = &style->base;
     struct m_style * m_sty = appstate->m_style;
@@ -421,7 +422,7 @@ void * handle_power(void * data){
 
     
     Event event = *(Event *) data;
-    struct AppState * appstate = event.appState;
+    struct AppState * appstate = event.appstate;
     struct m_style * m_sty = appstate->m_style;
     struct power_style * style = event.styles;
     struct base_style * base = &style->base;
@@ -463,7 +464,7 @@ void * handle_mpd(void * data){
     Event event = *(Event *)data;
     struct mpd_style * style = event.styles;
     struct base_style * base = &style->base;
-    struct AppState * appstate = event.appState;
+    struct AppState * appstate = event.appstate;
     struct m_style * m_sty = appstate->m_style;
 
     switch (event.specifier) {
@@ -506,7 +507,7 @@ void * handle_mem(void * data){
     Event event = *(Event *)data;
     struct mem_style * style = event.styles;
     struct base_style * base = &style->base;
-    struct AppState * appstate = event.appState;
+    struct AppState * appstate = event.appstate;
     struct m_style * m_sty = appstate->m_style;
 
     char buffer[16];
@@ -539,7 +540,7 @@ void * handle_temp(void * data){
     Event event = *(Event *)data;
     struct temp_style * style = event.styles;
     struct base_style * base = &style->base;
-    struct AppState * appstate = event.appState;
+    struct AppState * appstate = event.appstate;
     struct m_style * m_sty = appstate->m_style;
 
     char buffer[16];
