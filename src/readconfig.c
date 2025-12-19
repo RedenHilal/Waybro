@@ -108,7 +108,10 @@ static FILE * open_config(char * path){
     FILE * config_fd = fopen(full_path, "r");
 
     if (!config_fd) 
-        ON_ERR("Error on Opening config file")
+		config_fd = fopen("/usr/share/waybro/pconfig", "r");
+
+	if(!config_fd)
+			ON_ERR("failed to load config file");
 
     return config_fd;
 }

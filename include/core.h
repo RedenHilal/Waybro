@@ -1,6 +1,8 @@
 #ifndef WBRO_CORE
 #define WBRO_CORE
 
+#include <stdint.h>
+
 #include <cairo/cairo.h>
 #include <pango/pango.h>
 #include <pango/pangocairo.h>
@@ -9,6 +11,11 @@
 #include "wlr-layer-shell.h"
 #include "xdg-shell-client.h"
 
+
+#define u64 uint64_t
+#define u32 uint32_t
+#define u16 uint16_t
+#define u8 uint8_t
 
 struct AppState{
     struct wl_display * display;

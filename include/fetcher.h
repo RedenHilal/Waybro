@@ -20,10 +20,10 @@ int get_ac_fd(void * data);
 int get_mem_fd(int it_sec);
 int get_temp_fd(int it_sec);
 
+int get_net_fd();
 int get_bluetooth_fd();
 int get_mpd_fd();
-int get_net_fd();
-void net_set(struct fd_object *);
+void net_set(void * data);
 int get_time_fd();
 int get_volume_fd();
 int get_workspace_fd();

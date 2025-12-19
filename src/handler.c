@@ -400,8 +400,14 @@ void * handle_network(void * data){
     struct base_style * base = &style->base;
     struct m_style * m_sty = appstate->m_style;
 
-    printf("Event Triggered %d | Wifi is %s\n", event.type, event.value? "Up":"Down");
-    char * status = event.value? "Up": "Down";
+	if (event.data){
+    	printf("Event Triggered %d | Wifi Connected to  %s\n", event.type, event.data);
+	} else {
+    	printf("Event Triggered %d | Wifi is Down", event.type);
+	}
+
+
+    char * status = event.data? event.data: "Down";
     
     int rect_x = base->x + base->rd_left;
     int total_width = base->width + base->rd_right + base->rd_left;
@@ -415,6 +421,8 @@ void * handle_network(void * data){
 
     expose_rect_area(appstate, base->x, base->y, total_width, base->height);
 
+	if(event.data)
+			free(event.data);
     return NULL;
 }
 

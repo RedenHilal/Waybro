@@ -3,7 +3,6 @@
 
 #include <stdio.h>
 #include <stddef.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -32,6 +31,7 @@
 #define MAKS_EVENT 64
 #define DATA_COUNT 11
 #define ALPHA 0.8
+
 
 #define TO_DOUBLE(num) (double)num
 #define TO_RGB_FMT(num) TO_DOUBLE(num)/255.0
