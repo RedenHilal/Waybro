@@ -1,8 +1,8 @@
 # Waybro
 
-**Waybro** is a simple status bar designed for [Wayland](https://wayland.freedesktop.org/) compositors — currently supporting **Hyprland** only. It displays common system status info such as battery level, volume, and more.
+**Waybro** is a simple status bar designed for [Wayland](https://wayland.freedesktop.org/) compositors. This bar is made with module-based architecture, so you can create you own module using defined interface.
 
->  This project is still in early development. Expect bugs, missing features, and rough edges.
+>  This project is still in early development. Expect bugs, missing features, and undefined behaviours.
 
 >  Contribution, bug reports, and suggestion are highly appreciated.
 
@@ -11,14 +11,11 @@
 
 ##  Features
 
-- [x] Battery status via
-- [x] Volume level
-- [x] MPD Status
-- [x] Workspace
-- [x] And other status, either via inotify, socket ipc, or forking existing tools
-- [x] Configuration file support 
-- [ ] Multi-compositor support *(planned)*
-- [ ] Module and Plugin support *(planned)*
+-  Customizable module 
+-  Prebuild modules, such as pulseaudio, libnl, and more
+-  Simple interfaces for developing module
+-  Flexible module
+-  Configuration file support 
 
 ---
 
@@ -27,9 +24,12 @@
 ### Requirements
 
 - A Wayland compositor (currently only support for **Hyprland**)
+- `pango-cairo`
 - `cairo`
 - `cmake`
-- C compiler (e.g., `gcc`, `clang`)
+- `gcc`
+- `libnl`
+- `libpulse`
 
 ### Build
 
@@ -39,6 +39,12 @@ cd Waybro
 chmod +x install.sh
 ./install.sh release
 ```
+
+## Developing
+
+### Module
+
+Developing a module can be done by creating a your module directory in src/module, put source source file and put CMakeLists.txt there—with it linked to waybro-api interface. For more information, see include/module.h and existing prebuilt module for reference :3
 
 ##  License
 MIT License — see the [LICENSE](https://github.com/RedenHilal/Waybro?tab=MIT-1-ov-file#) file for details.
