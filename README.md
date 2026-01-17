@@ -23,7 +23,6 @@
 
 ### Requirements
 
-- A Wayland compositor (currently only support for **Hyprland**)
 - `pango-cairo`
 - `cairo`
 - `cmake`
