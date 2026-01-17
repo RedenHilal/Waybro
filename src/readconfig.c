@@ -1,7 +1,8 @@
 #include "fetcher.h"
 #include "style.h"
+#include "macro.h"
 
-static void parse_tu(struct component_style * sty, char * val){
+static void parse_tu(struct wb_style_unit * sty, char * val){
 
     char * endptr = NULL;
    
@@ -56,9 +57,9 @@ static void parse_tu(struct component_style * sty, char * val){
     return;
 }
 
-static char * read_section(char * line, struct component_entries ** entries){
+static char * read_section(char * line, struct wb_style_sec ** entries){
 
-    struct component_entries * sec_ent = malloc(sizeof(struct component_entries));
+    struct wb_style_sec * sec_ent = malloc(sizeof(struct wb_style_sec));
 
     sec_ent->style = NULL;
     char * iter = line + 1;
@@ -72,13 +73,13 @@ static char * read_section(char * line, struct component_entries ** entries){
     return sec_ent->section_key;
 }
 
-static void read_entries(char * line,struct component_entries * entry ){
+static void read_entries(char * line,struct wb_style_sec * entry ){
 
     char * key = line, * value;
     int delimit = strcspn(line, "=");
 
-    struct component_style * dummy = NULL;
-    struct component_style * style = malloc(sizeof(struct component_style));
+    struct wb_style_unit * dummy = NULL;
+    struct wb_style_unit * style = malloc(sizeof(struct wb_style_unit));
 
     value = line + delimit + 1;
     value[strcspn(value, "\n")] = 0;
@@ -116,14 +117,15 @@ static FILE * open_config(char * path){
     return config_fd;
 }
 
-struct component_entries * read_config(char *path, struct AppState * appstate){
+int read_config(char *path, struct wb_style_sec ** cpn_entries){
 
-    struct component_entries * ent_head = NULL, * dummy;
+	int sec_count = 0;
+    struct wb_style_sec * ent_head = NULL, * dummy;
     char buffer[512] = {0};
     char * section_now = NULL; 
     FILE * config_fd = open_config(path);
 
-    while (fgets(buffer,sizeof(buffer),config_fd)) {
+    while (fgets(buffer, sizeof(buffer), config_fd)) {
 
         buffer[strcspn(buffer, "\n")] = 0;
         
@@ -132,7 +134,8 @@ struct component_entries * read_config(char *path, struct AppState * appstate){
             dummy = NULL;
             section_now = read_section(buffer, &ent_head);
             HASH_FIND_STR(ent_head, section_now, dummy);
-            
+            sec_count++;
+
         }
         else if(strchr(buffer, '=')){
             if (!section_now)
@@ -144,12 +147,13 @@ struct component_entries * read_config(char *path, struct AppState * appstate){
     }
 
     fclose(config_fd);
+	*cpn_entries = ent_head;
 
-    return ent_head;
+    return sec_count;
 }
 
-static void match_sty(struct component_style * style,
-                      char * str, struct m_style * mstyle){
+static void match_sty(struct wb_style_unit * style,
+                      char * str, struct wb_style_main * mstyle){
 
     int val = style->int_val;
     
@@ -174,23 +178,23 @@ static void match_sty(struct component_style * style,
     
 }
 
-struct m_style * translate_mstyle(struct component_entries ** entries){
+struct wb_style_main * translate_mstyle(struct wb_style_sec ** entries){
 
     char key[][10] = {"width","height","a","r","g","b"};
-    struct m_style * m_style = malloc(sizeof(struct m_style));
-    struct m_style def_sty = {1920,30,80,105,105,196};
+    struct wb_style_main * m_style = malloc(sizeof(struct wb_style_main));
+    struct wb_style_main def_sty = {1920,30,80,105,105,196};
 
     //default style
-    memcpy(m_style, &def_sty, sizeof(struct m_style));
+    memcpy(m_style, &def_sty, sizeof(struct wb_style_main));
 
-    struct component_entries * ent_fnd = NULL;
+    struct wb_style_sec * ent_fnd = NULL;
 
     HASH_FIND_STR(*entries, "general", ent_fnd);
     if(!ent_fnd){
         return m_style;
     }
 
-    struct component_style * sty_fnd = NULL;
+    struct wb_style_unit * sty_fnd = NULL;
     for(int i = 0; i < M_STYLE_COUNT; i++){
         HASH_FIND_STR(ent_fnd->style, key[i], sty_fnd);
         if(sty_fnd){

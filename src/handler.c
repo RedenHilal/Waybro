@@ -4,36 +4,6 @@
 
 cairo_surface_t * resources;
 
-static void draw_arc(cairo_t * cai_context, struct base_style * base, struct m_style * m_sty, int width){
-    
-    int lx = base->x  + base->rd_left;
-    int rx = width + base->rd_left + base->x;
-    int y = base->y + base->height/2;
-   
-    cairo_set_source_rgba(cai_context, TO_RGB_FMT(m_sty->r), TO_RGB_FMT(m_sty->g),
-                        TO_RGB_FMT(m_sty->b), TO_ALPHA(m_sty->a));  
-                    
-    cairo_new_path(cai_context);
-    cairo_move_to(cai_context, lx, base->y + base->height);
-
-    if (base->rd_left)
-        cairo_arc(cai_context, lx, y, base->rd_left, M_PI_2, 3 * M_PI_2);
-    else
-        cairo_line_to(cai_context, lx, base->y);
-
-    cairo_line_to(cai_context, rx, base->y);
-
-    if (base->rd_right)
-        cairo_arc(cai_context, rx, y, base->rd_right, -M_PI_2, M_PI_2);
-    else
-        cairo_line_to(cai_context, rx, base->y + base->height);
-
-    cairo_line_to(cai_context, lx,base->y + base->height);
-
-    cairo_close_path(cai_context);
-    cairo_fill(cai_context);
-    
-}
 
 
 static void get_center(PangoLayout * layout, int * x, int * y, int width, int height, int dx, int dy){
@@ -48,7 +18,7 @@ static void get_center(PangoLayout * layout, int * x, int * y, int width, int he
     *y = dy + (height - lheight) / 2;
 }
 
-static void draw_text(cairo_t * cai_context, struct base_style * style, char * text){
+static void draw_text(cairo_t * cai_context, struct wb_style_base * style, char * text){
 
     int x, y;
     
@@ -86,16 +56,16 @@ static void draw_text_xy(cairo_t * cai_context, char * text,int x,int y, int wid
     g_object_unref(layout);    
 }
 
-static int get_prop_int(struct component_entries * entries,char * entry_name, char * field_name){
+static int get_prop_int(struct wb_style_sec * entries,char * entry_name, char * field_name){
 
-    struct component_entries * ent_fnd = NULL;
+    struct wb_style_sec * ent_fnd = NULL;
     HASH_FIND_STR(entries, entry_name, ent_fnd);
 
     if (!ent_fnd){
         return -1;
     }
 
-    struct component_style * sty_fnd = NULL;
+    struct wb_style_unit * sty_fnd = NULL;
     HASH_FIND_STR(ent_fnd->style, field_name, sty_fnd);
 
     if (!sty_fnd){
@@ -121,7 +91,7 @@ static char * get_str_by_format(char * format, char * str_val){
     return str_fmt;
 }
 
-static inline void erase_rect_area(struct AppState* appstate, int x,int y,int width, int height){
+static inline void erase_rect_area(struct appstate* appstate, int x,int y,int width, int height){
     cairo_save(appstate->cai_context);
     cairo_set_operator(appstate->cai_context, CAIRO_OPERATOR_CLEAR);
     cairo_rectangle(appstate->cai_context, x, y, width, height);
@@ -129,13 +99,13 @@ static inline void erase_rect_area(struct AppState* appstate, int x,int y,int wi
     cairo_restore(appstate->cai_context);
 }
 
-		static inline void expose_rect_area(struct AppState * appstate,int x,int y, int width, int height){
+		static inline void expose_rect_area(struct appstate * appstate,int x,int y, int width, int height){
 			wl_surface_attach(appstate->surface,appstate->buffer,0,0);
 			wl_surface_damage(appstate->surface, x,  y, width, height);
 			wl_surface_commit(appstate->surface);
 		}
 
-		static inline void render_text(struct AppState * appstate, int x, int y, int fontsize, const char* string){
+		static inline void render_text(struct appstate * appstate, int x, int y, int fontsize, const char* string){
 			//cairo_select_font_face(appstate->cai_context, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 			cairo_set_font_size(appstate->cai_context,fontsize);
 			cairo_set_source_rgba(appstate->cai_context, 1, 1, 1, ALPHA);
@@ -143,9 +113,9 @@ static inline void erase_rect_area(struct AppState* appstate, int x,int y,int wi
 			cairo_show_text(appstate->cai_context, string);
 		}
 
-		static inline void draw_rect(struct AppState * appstate, int x, int y, int width, int height){
+		static inline void draw_rect(struct appstate * appstate, int x, int y, int width, int height){
 			
-			struct m_style * m_sty = appstate->m_style;
+			struct wb_style_main * m_sty = appstate->m_style;
 			cairo_set_source_rgba(appstate->cai_context, TO_RGB_FMT(m_sty->r), TO_RGB_FMT(m_sty->g),
 								  TO_RGB_FMT(m_sty->b), TO_ALPHA(m_sty->a));
 
@@ -153,7 +123,7 @@ static inline void erase_rect_area(struct AppState* appstate, int x,int y,int wi
 			cairo_fill(appstate->cai_context);
 		}
 
-		static inline void draw_rect_spc(struct AppState * appstate, int x, int y, int width, int height,
+		static inline void draw_rect_spc(struct appstate * appstate, int x, int y, int width, int height,
 								  uint8_t r, uint8_t g, uint8_t b, uint8_t a){
 			cairo_set_source_rgba(appstate->cai_context, TO_RGB_FMT(r), TO_RGB_FMT(g),
 								  TO_RGB_FMT(b), TO_ALPHA(a));
@@ -162,9 +132,11 @@ static inline void erase_rect_area(struct AppState* appstate, int x,int y,int wi
 			cairo_fill(appstate->cai_context);
 		}
 
-		static void render_resource(void * data, const char * path, int x, int y, int width,int height){
-			struct AppState * appstate = data;
-			resources = cairo_image_surface_create_from_png(path);
+		static void render_resource(void * data, const char * path,
+									int x, int y, int width,int height){
+
+	struct appstate * appstate = data;
+	resources = cairo_image_surface_create_from_png(path);
     if(cairo_surface_status(resources) != CAIRO_STATUS_SUCCESS)
         ON_ERR("load resources - handler")
 
@@ -180,13 +152,6 @@ static inline void erase_rect_area(struct AppState* appstate, int x,int y,int wi
     cairo_restore(appstate->cai_context);
 }
 
-void resources_init(void * data){
-    render_resource(data, "../build/resources/battery-mid-svgrepo-com.png", 1820, 0, 30, 30);
-    render_resource(data, "../build/resources/bluetooth-on-svgrepo-com.png", 1760,3, 24, 24);
-    render_resource(data, "../build/resources/wifi-1018-svgrepo-com.png", 1685, 3, 24, 24);
-    render_resource(data, "../build/resources/volume-high-svgrepo-com.png", 1600, 3, 24, 24);
-    render_resource(data, "../build/resources/brightness-svgrepo-com.png", 1540, 3, 24, 24);
-}
 
 void * handle_sysclick(void * data){
     Event event = *(Event *) data;
@@ -198,10 +163,10 @@ void * handle_sysclick(void * data){
 void * handle_workspace(void * data){
 
     Event event = *(Event *) data;
-    struct AppState * appstate = event.appstate;
+    struct appstate * appstate = event.appstate;
     struct ws_style * style = event.styles;
-    struct base_style * base = &style->base;
-    struct m_style * main_sty = appstate->m_style;
+    struct wb_style_base * base = &style->base;
+    struct wb_style_main * main_sty = appstate->m_style;
 
     int * workspace_data = (int*)event.data;
     char buffer[4];
@@ -278,10 +243,10 @@ void * handle_time(void * data){
 
 
     int minutes = event.value;
-    struct AppState * appstate = event.appstate;
-    struct m_style * m_sty = appstate->m_style;
+    struct appstate * appstate = event.appstate;
+    struct wb_style_main * m_sty = appstate->m_style;
     struct tm_style * style = event.styles;
-    struct base_style * base = &style->base;
+    struct wb_style_base * base = &style->base;
 
     char clock_now[10];
 
@@ -307,11 +272,11 @@ void * handle_brightness(void * data){
 
 
     Event event = *(Event *) data;
-    struct AppState * appstate = event.appstate;
+    struct appstate * appstate = event.appstate;
 
     struct brightness_style * style = event.styles;
-    struct base_style * base = &style->base;
-    struct m_style * m_sty = appstate->m_style;
+    struct wb_style_base * base = &style->base;
+    struct wb_style_main * m_sty = appstate->m_style;
     char buffer[16];
 
     printf("Event Triggered %d | Brightness status: %d\n", event.type,event.value);
@@ -336,11 +301,11 @@ void * handle_brightness(void * data){
 void * handle_volume(void * data){
 
     Event event = *(Event *) data;
-    struct AppState * appstate = event.appstate;
+    struct appstate * appstate = event.appstate;
 
     struct vol_style * style = event.styles;
-    struct base_style * base = &style->base;
-    struct m_style * m_sty = appstate->m_style;
+    struct wb_style_base * base = &style->base;
+    struct wb_style_main * m_sty = appstate->m_style;
     char buffer[16];
 
     printf("Event Triggered %d | Volume status: %d\n", event.type,event.value);
@@ -365,11 +330,11 @@ void * handle_volume(void * data){
 void * handle_bluetooth(void * data){
 
     Event event = *(Event *) data;
-    struct AppState * appstate = event.appstate;
+    struct appstate * appstate = event.appstate;
 
-    struct m_style * m_sty = appstate->m_style;
+    struct wb_style_main * m_sty = appstate->m_style;
     struct blue_style * style = event.styles;
-    struct base_style * base = &style->base;
+    struct wb_style_base * base = &style->base;
 
     int * connections = (int *)event.data;
     char buffer[16];
@@ -395,10 +360,10 @@ void * handle_bluetooth(void * data){
 void * handle_network(void * data){
 
     Event event = *(Event *) data;
-    struct AppState * appstate = event.appstate;
+    struct appstate * appstate = event.appstate;
     struct net_style * style = event.styles;
-    struct base_style * base = &style->base;
-    struct m_style * m_sty = appstate->m_style;
+    struct wb_style_base * base = &style->base;
+    struct wb_style_main * m_sty = appstate->m_style;
 
 	if (event.data){
     	printf("Event Triggered %d | Wifi Connected to  %s\n", event.type, event.data);
@@ -430,10 +395,10 @@ void * handle_power(void * data){
 
     
     Event event = *(Event *) data;
-    struct AppState * appstate = event.appstate;
-    struct m_style * m_sty = appstate->m_style;
+    struct appstate * appstate = event.appstate;
+    struct wb_style_main * m_sty = appstate->m_style;
     struct power_style * style = event.styles;
-    struct base_style * base = &style->base;
+    struct wb_style_base * base = &style->base;
     char power[6];
 
     switch (event.specifier) {
@@ -471,9 +436,9 @@ void * handle_mpd(void * data){
 
     Event event = *(Event *)data;
     struct mpd_style * style = event.styles;
-    struct base_style * base = &style->base;
-    struct AppState * appstate = event.appstate;
-    struct m_style * m_sty = appstate->m_style;
+    struct wb_style_base * base = &style->base;
+    struct appstate * appstate = event.appstate;
+    struct wb_style_main * m_sty = appstate->m_style;
 
     switch (event.specifier) {
         case MPD_UP:
@@ -514,9 +479,9 @@ void * handle_mem(void * data){
 
     Event event = *(Event *)data;
     struct mem_style * style = event.styles;
-    struct base_style * base = &style->base;
-    struct AppState * appstate = event.appstate;
-    struct m_style * m_sty = appstate->m_style;
+    struct wb_style_base * base = &style->base;
+    struct appstate * appstate = event.appstate;
+    struct wb_style_main * m_sty = appstate->m_style;
 
     char buffer[16];
     
@@ -547,9 +512,9 @@ void * handle_temp(void * data){
 
     Event event = *(Event *)data;
     struct temp_style * style = event.styles;
-    struct base_style * base = &style->base;
-    struct AppState * appstate = event.appstate;
-    struct m_style * m_sty = appstate->m_style;
+    struct wb_style_base * base = &style->base;
+    struct appstate * appstate = event.appstate;
+    struct wb_style_main * m_sty = appstate->m_style;
 
     char buffer[16];
     

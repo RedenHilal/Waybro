@@ -1,129 +1,109 @@
 #include "displayer.h"
+#include "module.h"
 #include "fetcher.h"
 #include "style.h"
 #include "core.h"
+#include "poll.h"
+#include "render.h"
+#include "comm.h"
 
-// Array of function to handle events type
-// index is matched by its corresponding enum value
+#include "macro.h"
 
-static void * (*handler_group[DATA_COUNT])(void*data) = 
-{
-    handle_sysclick,
-    handle_workspace,
-    handle_time,
-    handle_brightness,
-    handle_volume,
-    handle_bluetooth,
-    handle_network,
-    handle_power,
-    handle_mpd,
-    handle_mem,
-    handle_temp
-};
+#include <assert.h>
 
-static void *(*get_styles[DATA_COUNT])(struct component_entries **,struct m_style*) = 
-{
-    get_sys_sty,
-    get_ws_sty,
-    get_tm_sty,
-    get_brght_sty,
-    get_vol_sty,
-    get_blue_sty,
-    get_net_sty,
-    get_power_sty,
-    get_mpd_sty,
-    get_mem_sty,
-    get_temp_sty
-};
-
-static struct sigaction sigact = {
-    handle_segv,
-    0,
-    0,
-    0
-};
-
-static pthread_mutex_t mutex[DATA_COUNT];
+#define MAX_EVENTS 64
 
 
-static int setepoll(int pipe,struct AppState* appstate){
+static void get_style(struct module_interface ** interfaces, int mod_count,
+						struct wb_style_sec ** entries, struct wb_style_main * msty){
 
-    struct epoll_event event,wlevent;
-    event.data.fd = pipe;
-    event.events = EPOLLIN;
-    int epfd = epoll_create1(IN_CLOEXEC);
+	struct wb_style_sec * sec = NULL;
 
-    if (epfd < 0)
-        ON_ERR("Epoll init - displayer")
-    epoll_ctl(epfd, EPOLL_CTL_ADD, pipe, &event);
+    for (int i = 0; i < mod_count; i++){
+		HASH_FIND_STR(*entries, interfaces[i]->module_name, sec);
 
-    int wfd = wl_display_get_fd(appstate->display);
-    wlevent.events = EPOLLIN;
-    wlevent.data.fd = wfd;
-    epoll_ctl(epfd,EPOLL_CTL_ADD,wfd,&wlevent);
-
-    return epfd;
-}
-
-static void get_style(void * styles[], struct component_entries ** entries,
-                      struct m_style * main_sty){
-
-    for (int i = 0; i < DATA_COUNT;i++){
-        styles[i] = get_styles[i](entries,main_sty);
+        interfaces[i]->parse_sty(sec, msty);
+		// clean up later
+		sec = NULL;
     }
 }
 
 int main(){
-    printf("Haihaiii\n");
-    struct AppState appstate = {0};
+    struct appstate appstate = {0};
     //sigaction(SIGSEGV, &sigact, NULL);
 
-    struct component_entries * cpn_entries = read_config(NULL, &appstate);
-    struct m_style * m_style = translate_mstyle(&cpn_entries);
+    struct wb_style_sec * cpn_entries = NULL;
+	read_config(NULL, &cpn_entries);
+    struct wb_style_main * m_style = translate_mstyle(&cpn_entries);
 
-    void * styles[DATA_COUNT];
-    get_style(styles,&cpn_entries, m_style);
-    
-    appstate.m_style = m_style;
+	int sec_count = HASH_COUNT(cpn_entries);
+	int mod_found;
 
-    int epfd, pipes[2];
-    struct epoll_event sock_event, events[MAKS_EVENT];
+	struct module_interface ** interfaces = load_modules(cpn_entries, &mod_found);
+
+	printf("hai %d\n", mod_found);
+	if (!mod_found){
+		printf("No Module Found, Exiting..\n");
+		exit(0);
+	}
+
+    get_style(interfaces, mod_found, &cpn_entries, m_style);
+	
+	struct wb_render wrender = {
+		.m_style = m_style,
+		.appstate = &appstate
+	};
+
+    int pipes[2];
+    struct wb_poll_event events[MAX_EVENTS];
+
     pthread_t threadID;
-    Event dump[MAKS_EVENT];
+
+    struct wb_data dump[MAX_EVENTS];
     
     if (pipe(pipes) != 0) 
         ON_ERR("Pipe - main")
     
-    Thread_struct param = {pipes[1],&appstate,styles};
+	struct module_context mod_ctx = {pipes[1], mod_found, &appstate, interfaces};
     
-    
-    setwayland(&appstate);
+    setwayland(&appstate, &wrender);
     wl_display_dispatch_pending(appstate.display);
-    epfd = setepoll(pipes[0],&appstate);
+
+	int wlfd = wl_display_get_fd(appstate.display);
+
+	struct wb_poll_fort * fort = wb_poll_create(O_CLOEXEC, 0);
+
+	struct wb_poll_handle * pipe_handle = wb_poll_reg_events(fort, pipes[0],
+													WB_EVENT_READ, NULL);
+	struct wb_poll_handle * wlfd_handle = wb_poll_reg_events(fort, wlfd,
+													WB_EVENT_READ, NULL);
     
-    if (pthread_create(&threadID, NULL, mainpoll, &param)!=0)
+    if (pthread_create(&threadID, NULL, mainpoll, &mod_ctx) != 0)
         ON_ERR("pthread cretae - displayer")
     
 
     while (1){
 
-        int ready = epoll_wait(epfd, events, MAKS_EVENT,-1);
+        int ready = wb_poll_wait_events(fort, events, MAX_EVENTS, -1);
+		printf("ready %d\n");
 
-        for(int i = 0;i<ready;i++){
-            if(events[i].data.fd == pipes[0]){
-                int byte_recvs = read(pipes[0], &dump[i], sizeof(Event));
+        for(int i = 0; i < ready; i++){
+
+            if (events[i].fd == wlfd) {
+                wl_display_dispatch(appstate.display);
+            }
+
+			else {
+                int byte_recvs = read(pipes[0], &dump[i], sizeof(struct wb_data));
                 if (byte_recvs < 0) {
                     perror("Err on recv\n");
                     continue;
                 }
-				dump[i].appstate = &appstate;
-                dump[i].styles = styles[dump[i].type];
-                handler_group[dump[i].type](&dump[i]);
-                
+
+				int id = dump[i].id;
+				interfaces[id]->handle_update(&wrender, &dump[i]);
             }
-            else if (events[i].data.fd == wl_display_get_fd(appstate.display)) {
-                wl_display_dispatch(appstate.display);
-            }
+
         }
 
         wl_display_flush(appstate.display);

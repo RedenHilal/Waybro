@@ -72,6 +72,10 @@ struct wb_poll_event {
 	struct wb_poll_handle * handle;
 };
 
+/*
+ * pflag for O_CLOEXEC mode
+ * wflag for WB_EVENT_EDGE mode
+ */
 struct wb_poll_fort * wb_poll_create(int pflag, int wflag);
 
 struct wb_poll_handle * wb_poll_reg_events(struct wb_poll_fort * fort,
@@ -82,13 +86,17 @@ int wb_poll_rmv_events(struct wb_poll_handle * handle);
 int wb_poll_wait_events(struct wb_poll_fort * fort, struct wb_poll_event * event,
 						int nevents, int timeouts);
 
-// reap data from an event, will return registered data
-// until every registered data read.
-// at that point future reap will return NULL;
+void * wb_poll_data_from_handle(struct wb_poll_handle * handle);
+
+/*
+ * reap registered data from an event
+ * return NULL on fail or every registered data has been read
+ */
 void * wb_poll_reap_event(struct wb_poll_fort * fort, struct wb_poll_event * event);
 
-
-// global idx table
+/*
+ * global idx to event table
+ */
 extern const int event_idx[WB_IDX_MAX];
 
 // test purpose

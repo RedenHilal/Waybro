@@ -1,5 +1,9 @@
-1 - do config parser # in process
-2 - update fetcher to use dbus # i'll consider it since ../BAT0/capacity seems portable
-3 - make another thread to process signal
-4 - optimize polling, maybe use bare mutex/semaphore
+1 - renew architecture with dynamic module one # on progress
+2 - update fetcher to use dbus # done
+-> colasce power battery with charging status # done
+3 - make another thread to process signal # done
+4 - optimize polling, maybe use bare mutex/semaphore # idk, not needed yet
 5 - improve font, string output
+6 - fix mpd
+7 - improve styling, make it less stiff
+8 - make abstraction for rendering

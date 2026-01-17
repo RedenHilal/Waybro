@@ -1,9 +1,13 @@
 #include "displayer.h"
 #include "style.h"
 #include "core.h"
+#include "render.h"
+#include "macro.h"
 
-// functions belows (until end of section) are responsible for drawing pixels
-// might move it to other function if cairo do some mess
+struct cb_data {
+	struct appstate * appstate;
+	struct wb_render * wrender;
+};
 
 int alc_shm(uint64_t size){
     char name[8];
@@ -11,55 +15,50 @@ int alc_shm(uint64_t size){
     name[7] = 0;
     for (int i = 1;i<6;i++) name[i] = (rand() & 23) + 97;
 
-    int fd = shm_open(name,O_RDWR | O_CREAT | O_EXCL, S_IWUSR | S_IRUSR | S_IWOTH | S_IROTH);
+    int fd = shm_open(name,O_RDWR | O_CREAT | O_EXCL, S_IWUSR |
+							S_IRUSR | S_IWOTH | S_IROTH);
+
+	if (fd < 0)
+		ON_ERR("shared mem alloc failed\n");
     
     shm_unlink(name);
-    ftruncate(fd, size);
+    if (ftruncate(fd, size) < 0)
+		ON_ERR("ftruncate\n")
     return fd;
 
 }
 
-void draw(struct AppState* appstate){
-    struct m_style * main_sty = appstate->m_style;
+void draw(struct appstate* appstate){
     
-    // cairo_set_source_rgba(appstate->cai_context, TO_RGB_FMT(main_sty->r), TO_RGB_FMT(main_sty->g), TO_RGB_FMT(main_sty->b), TO_ALPHA(main_sty->a));
-    // cairo_rectangle(appstate->cai_context,0,0,main_sty->width,main_sty->height);
-    // cairo_fill(appstate->cai_context);
-
-    // cairo_select_font_face(appstate->cai_context, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    // cairo_set_font_size(appstate->cai_context,main_sty->height);
-    
-    // wl_surface_attach(appstate->surface, appstate->buffer, 0, 0);
-    // wl_surface_damage_buffer(appstate->surface, 0, 0, main_sty->width, main_sty->height);
-    // wl_surface_commit(appstate->surface);
 }
 
-void resize(struct AppState* appstate){
+void resize(struct appstate* appstate, struct wb_render * wrender){
 
-    struct m_style * main_sty = appstate->m_style;
+    struct wb_style_main * main_sty = wrender->m_style;
 
-    int64_t size = main_sty->width * main_sty->height * 4;
     int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32,main_sty->width);
+    uint64_t size = main_sty->width * main_sty->height * stride;
     int fd = alc_shm(size);
 
     appstate->buffptr = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    appstate->cai_srfc = cairo_image_surface_create_for_data(appstate->buffptr, CAIRO_FORMAT_ARGB32,
-                                                            main_sty->width, main_sty->height, stride);
-    appstate->cai_context = cairo_create(appstate->cai_srfc);
+    wrender->cai_srfc = cairo_image_surface_create_for_data(appstate->buffptr, 
+					CAIRO_FORMAT_ARGB32, main_sty->width, main_sty->height, stride);
+    wrender->cai_context = cairo_create(wrender->cai_srfc);
 
     struct wl_shm_pool * pool = wl_shm_create_pool(appstate->shm, fd, size);
-    appstate->buffer = wl_shm_pool_create_buffer(pool, 0, main_sty->width, main_sty->height, main_sty->width * 4, WL_SHM_FORMAT_ARGB8888);
+    appstate->buffer = wl_shm_pool_create_buffer(pool, 0, main_sty->width, 
+					main_sty->height, main_sty->width * 4, WL_SHM_FORMAT_ARGB8888);
     
     wl_shm_pool_destroy(pool);
     close(fd);
 }
 
-// end of drawing section
 
 static void wl_callback_done(void * data, struct wl_callback * callback, uint32_t callback_data){
-    struct AppState * appstate = data;
+    struct cb_data * cb_data = data;
+	struct appstate * appstate = cb_data->appstate;
     wl_callback_destroy(callback);
-    resize(appstate);
+    resize(appstate, cb_data->wrender);
     draw(appstate);
 }
 
@@ -69,13 +68,14 @@ const struct wl_callback_listener wl_callback_listener = {
 
 static void zwlr_surface_configure(void * data, struct zwlr_layer_surface_v1 * surface,
                                     uint32_t serial,uint32_t width, uint32_t height){
-    struct AppState *appstate = data;
+    struct cb_data * cb_data = data;
+	struct appstate *appstate = cb_data->appstate;
 
     zwlr_layer_surface_v1_ack_configure(surface, serial);
 
     struct wl_callback * callback = wl_surface_frame(appstate->surface);
-    wl_callback_add_listener(callback, &wl_callback_listener, appstate);
-    resize(appstate);
+    wl_callback_add_listener(callback, &wl_callback_listener, cb_data);
+    resize(appstate, cb_data->wrender);
     
     draw(appstate);
     wl_display_flush(appstate->display);
@@ -91,7 +91,7 @@ static const struct zwlr_layer_surface_v1_listener zwlr_surface_listener = {
 };
 
 void xdg_ping(void*data, struct xdg_wm_base * base, uint32_t serial){
-    //struct AppState * appstate = data;
+    //struct appstate * appstate = data;
     xdg_wm_base_pong(base,serial);
     
 }
@@ -134,7 +134,7 @@ static const struct wl_output_listener wl_output_listener={
 
 static void wl_registry_global(void * data, struct wl_registry* registry,uint32_t name, const char* interface, uint32_t version){
     //printf("interface: '%s', version: %d, name: %d\n", interface, version, name);
-    struct AppState *appstate = data; 
+    struct appstate *appstate = data; 
 
     if (!strcmp(interface, wl_compositor_interface.name)){
         appstate->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 4);
@@ -159,14 +159,21 @@ static void wl_registry_global_remove(void* data, struct wl_registry* registry, 
 
 }
 
-int setwayland(struct AppState* appstate){
+int setwayland(struct appstate * appstate, struct wb_render * wrender){
+
+	struct cb_data * cb_data = malloc(sizeof(struct cb_data));
+	cb_data->appstate = appstate;
+	cb_data->wrender = wrender;
 
     // Below are the structs passed onto each listener,
     // except for the xdg_wm_base listener. would make up inconsistensy 
     // in the appstate struct, hence its manually passed at the registry global
 
-    const struct wl_registry_listener listener = {.global = wl_registry_global, .global_remove = wl_registry_global_remove};
-    struct m_style * main_sty = appstate->m_style;
+    const struct wl_registry_listener listener = {
+			.global = wl_registry_global,
+			.global_remove = wl_registry_global_remove
+	};
+    struct wb_style_main * main_sty = wrender->m_style;
     
     appstate->display = wl_display_connect(NULL);
     appstate->registry = wl_display_get_registry(appstate->display);
@@ -175,13 +182,17 @@ int setwayland(struct AppState* appstate){
     wl_display_roundtrip(appstate->display);
     
     appstate->surface = wl_compositor_create_surface(appstate->compositor);
-    struct zwlr_layer_surface_v1 * zwlr_surface = zwlr_layer_shell_v1_get_layer_surface(appstate->zwlr_sh, appstate->surface, appstate->output, ZWLR_LAYER_SHELL_V1_LAYER_TOP, "zwlr_layer");
+    struct zwlr_layer_surface_v1 * zwlr_surface = zwlr_layer_shell_v1_get_layer_surface(
+					appstate->zwlr_sh, appstate->surface, appstate->output,
+					ZWLR_LAYER_SHELL_V1_LAYER_TOP, "zwlr_layer");
     appstate->zwlr_srfc = zwlr_surface;
 
-    zwlr_layer_surface_v1_set_anchor(zwlr_surface, ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT );
+    zwlr_layer_surface_v1_set_anchor(zwlr_surface, ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | 
+					ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
+
     zwlr_layer_surface_v1_set_size(zwlr_surface, main_sty->width, main_sty->height);
     zwlr_layer_surface_v1_set_exclusive_zone(zwlr_surface, main_sty->height);
-    zwlr_layer_surface_v1_add_listener(zwlr_surface, &zwlr_surface_listener, appstate);
+    zwlr_layer_surface_v1_add_listener(zwlr_surface, &zwlr_surface_listener, cb_data);
 
     wl_surface_commit(appstate->surface);
     wl_display_roundtrip(appstate->display);

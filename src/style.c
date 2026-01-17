@@ -31,56 +31,56 @@ static int calc_pcpx(enum style_unit unit, int raw_val, int main_val){
     return raw_val;
 }
 
-static void get_base_width(struct base_style * base,struct component_style * sty_fnd, 
-                           struct m_style * main_sty){
+static void get_base_width(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
+                           struct wb_style_main * main_sty){
 
     base->width = calc_pcpx(sty_fnd->unit, sty_fnd->int_val, main_sty->width);
 }
 
-static void get_base_height(struct base_style * base,struct component_style * sty_fnd, 
-                           struct m_style * main_sty){
+static void get_base_height(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
+                           struct wb_style_main * main_sty){
 
     base->height = calc_pcpx(sty_fnd->unit, sty_fnd->int_val, main_sty->height);
 }
 
-static void get_base_fs(struct base_style * base,struct component_style * sty_fnd, 
-                           struct m_style * main_sty){
+static void get_base_fs(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
+                           struct wb_style_main * main_sty){
 
     base->font_size = calc_pcpx(sty_fnd->unit, sty_fnd->int_val, main_sty->height);
 }
 
-static void get_base_x(struct base_style * base,struct component_style * sty_fnd, 
-                           struct m_style * main_sty){
+static void get_base_x(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
+                           struct wb_style_main * main_sty){
 
     base->x = sty_fnd->int_val;
 }
 
-static void get_base_y(struct base_style * base,struct component_style * sty_fnd, 
-                           struct m_style * main_sty){
+static void get_base_y(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
+                           struct wb_style_main * main_sty){
 
     base->y = sty_fnd->int_val;
 }
 
-static void get_base_enabled(struct base_style * base,struct component_style * sty_fnd, 
-                           struct m_style * main_sty){
+static void get_base_enabled(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
+                           struct wb_style_main * main_sty){
 
     base->enabled = sty_fnd->int_val;
 }
 
-static void get_base_rdl(struct base_style * base,struct component_style * sty_fnd, 
-                           struct m_style * main_sty){
+static void get_base_rdl(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
+                           struct wb_style_main * main_sty){
 
     base->rd_left = sty_fnd->int_val;
 }
 
-static void get_base_rdr(struct base_style * base,struct component_style * sty_fnd, 
-                           struct m_style * main_sty){
+static void get_base_rdr(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
+                           struct wb_style_main * main_sty){
 
     printf("rdr_val: %d\n",sty_fnd->int_val);
     base->rd_right = sty_fnd->int_val;
 }
 
-static void(*base_dispatch[])(struct base_style *, struct component_style*, struct m_style*) = {
+static void(*base_dispatch[])(struct wb_style_base *, struct wb_style_unit*, struct wb_style_main*) = {
     get_base_width,
     get_base_height,
     get_base_x,
@@ -91,15 +91,15 @@ static void(*base_dispatch[])(struct base_style *, struct component_style*, stru
     get_base_rdr
 };
 
-static inline void match_base_sty(struct base_style * base,struct component_style * sty_fnd,
-                           int index, struct m_style * main_sty){
+static inline void match_base_sty(struct wb_style_base * base,struct wb_style_unit * sty_fnd,
+                           int index, struct wb_style_main * main_sty){
 
     base_dispatch[index](base,sty_fnd,main_sty);
 }
 
-static int get_fmt(char * dest, struct component_entries * entry){
+static int get_fmt(char * dest, struct wb_style_sec * entry){
 
-    struct component_style * sty_fnd = NULL;
+    struct wb_style_unit * sty_fnd = NULL;
     HASH_FIND_STR(entry->style, "format", sty_fnd);
 
     if(!sty_fnd)
@@ -110,9 +110,9 @@ static int get_fmt(char * dest, struct component_entries * entry){
     return 0;
 }
 
-static int get_interval( struct component_entries * entry){
+static int get_interval( struct wb_style_sec * entry){
 
-    struct component_style * sty_fnd = NULL;
+    struct wb_style_unit * sty_fnd = NULL;
     HASH_FIND_STR(entry->style, "interval", sty_fnd);
 
     if (!sty_fnd)
@@ -121,50 +121,12 @@ static int get_interval( struct component_entries * entry){
     return sty_fnd->int_val;
 }
 
-static void iter_ws_key(struct component_style * sty_fnd, int index,
-                        struct ws_style * ws_sty){
+
+
+void get_base_sty(struct wb_style_base * base, struct wb_style_sec * entry,
+                  struct wb_style_main * main_sty){
     
-    switch (index) {
-        case 0:
-            ws_sty->max_ws = sty_fnd->int_val;
-            break;
-        case 1:
-            ws_sty->radius = sty_fnd->int_val;
-            break;
-        case 2:
-            ws_sty->h_color = sty_fnd->int_val;
-    }
-
-}
-
-static void get_ws_ent(struct component_entries * entry, struct ws_style * ws_sty){
-
-    char ws_key[][10] = {
-        "ws_max",
-        "radius",
-        "h_color"
-    };
-
-    struct component_style * sty_fnd = NULL;
-    int size = sizeof(ws_key) / sizeof(ws_key[0]);
-
-    for (int i = 0; i < size; i++){
-        HASH_FIND_STR(entry->style, ws_key[i],sty_fnd);
-
-        if(sty_fnd){
-            iter_ws_key(sty_fnd, i, ws_sty);
-            CLEAN_HASH(entry->style, sty_fnd);
-        }
-
-        sty_fnd = NULL;
-    }
-
-}
-
-void get_base_sty(struct base_style * base, struct component_entries * entry,
-                  struct m_style * main_sty){
-    
-    struct component_style * sty_fnd = NULL;
+    struct wb_style_unit * sty_fnd = NULL;
     int iter = sizeof(base_match)/sizeof(base_match[0]);
 
     for(int i = 0; i < iter; i++){
@@ -177,45 +139,19 @@ void get_base_sty(struct base_style * base, struct component_entries * entry,
         }
 
         match_base_sty(base, sty_fnd, i, main_sty);
-
-        CLEAN_HASH(entry->style, sty_fnd);
         sty_fnd = NULL;
     }
 
 }
 
 
-void * get_ws_sty(struct component_entries ** entries, struct m_style * main_sty){
 
-    char section[] = "workspace";
-    struct ws_style * ws_sty = calloc(1,sizeof(struct ws_style));
-
-    struct component_entries * sect_fnd = NULL;
-    HASH_FIND_STR(*entries, section, sect_fnd);
-
-    if(!sect_fnd){
-        ws_sty->base.enabled = 0;
-        return ws_sty;
-    }
-
-    get_base_sty(&ws_sty->base, sect_fnd, main_sty);
-    printf("-=%d\n",ws_sty->base.rd_right);
-
-    get_ws_ent(sect_fnd, ws_sty);
-    CLEAN_HASH(*entries, sect_fnd);
-
-    printf("max_ws:%d | radius: %d | color:%d\n",ws_sty->max_ws,ws_sty->radius,ws_sty->h_color);
-
-
-    return ws_sty;
-}
-
-void * get_tm_sty(struct component_entries ** entries, struct m_style * main_sty){
+void * get_tm_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
 
     char section[] = "time";
     struct tm_style * tm_sty = calloc(1,sizeof(struct tm_style));
 
-    struct component_entries * sect_fnd = NULL;
+    struct wb_style_sec * sect_fnd = NULL;
     HASH_FIND_STR(*entries, section, sect_fnd);
 
     if(!sect_fnd){
@@ -234,12 +170,12 @@ void * get_tm_sty(struct component_entries ** entries, struct m_style * main_sty
     return tm_sty;
 }
 
-void * get_brght_sty(struct component_entries ** entries, struct m_style * main_sty){
+void * get_brght_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
 
     char section[] = "brightness";
     struct brightness_style * brght_sty = calloc(1,sizeof(struct brightness_style));
 
-    struct component_entries * sect_fnd = NULL;
+    struct wb_style_sec * sect_fnd = NULL;
     HASH_FIND_STR(*entries, section, sect_fnd);
 
     if(!sect_fnd){
@@ -258,12 +194,12 @@ void * get_brght_sty(struct component_entries ** entries, struct m_style * main_
     return brght_sty;
 }
 
-void * get_vol_sty(struct component_entries ** entries, struct m_style * main_sty){
+void * get_vol_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
 
     char section[] = "volume";
     struct vol_style * vol_sty = calloc(1,sizeof(struct vol_style));
 
-    struct component_entries * sect_fnd = NULL;
+    struct wb_style_sec * sect_fnd = NULL;
     HASH_FIND_STR(*entries, section, sect_fnd);
 
     if(!sect_fnd){
@@ -282,12 +218,12 @@ void * get_vol_sty(struct component_entries ** entries, struct m_style * main_st
     return vol_sty;
 }
 
-void * get_blue_sty(struct component_entries ** entries, struct m_style * main_sty){
+void * get_blue_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
 
     char section[] = "bluetooth";
     struct blue_style * blue_sty = calloc(1,sizeof(struct blue_style));
 
-    struct component_entries * sect_fnd = NULL;
+    struct wb_style_sec * sect_fnd = NULL;
     HASH_FIND_STR(*entries, section, sect_fnd);
 
     if(!sect_fnd){
@@ -306,12 +242,12 @@ void * get_blue_sty(struct component_entries ** entries, struct m_style * main_s
     return blue_sty;
 }
 
-void * get_net_sty(struct component_entries ** entries, struct m_style * main_sty){
+void * get_net_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
 
     char section[] = "network";
     struct net_style * net_sty = calloc(1,sizeof(struct net_style));
 
-    struct component_entries * sect_fnd = NULL;
+    struct wb_style_sec * sect_fnd = NULL;
     HASH_FIND_STR(*entries, section, sect_fnd);
 
     if(!sect_fnd){
@@ -330,36 +266,13 @@ void * get_net_sty(struct component_entries ** entries, struct m_style * main_st
     return net_sty;
 }
 
-void * get_power_sty(struct component_entries ** entries, struct m_style * main_sty){
 
-    char section[] = "power";
-    struct power_style * pow_sty = calloc(1,sizeof(struct power_style));
-
-    struct component_entries * sect_fnd = NULL;
-    HASH_FIND_STR(*entries, section, sect_fnd);
-
-    if(!sect_fnd){
-        pow_sty->base.enabled = 0;
-        return pow_sty;
-    }
-
-    get_base_sty(&pow_sty->base, sect_fnd, main_sty);
-    int res = get_fmt(pow_sty->format, sect_fnd);
-
-    if (res < 0)
-        pow_sty->base.enabled = 0;
-
-    CLEAN_HASH(*entries, sect_fnd);
-
-    return pow_sty;
-}
-
-void * get_mpd_sty(struct component_entries ** entries, struct m_style * main_sty){
+void * get_mpd_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
 
     char section[] = "mpd";
     struct mpd_style * mpd_sty = calloc(1,sizeof(struct mpd_style));
 
-    struct component_entries * sect_fnd = NULL;
+    struct wb_style_sec * sect_fnd = NULL;
     HASH_FIND_STR(*entries, section, sect_fnd);
 
     if(!sect_fnd){
@@ -378,15 +291,15 @@ void * get_mpd_sty(struct component_entries ** entries, struct m_style * main_st
     return mpd_sty;
 }
 
-void * get_sys_sty(struct component_entries ** entries, struct m_style * main_sty){
+void * get_sys_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
     return NULL;
 }
 
-void * get_mem_sty(struct component_entries ** entries, struct m_style * main_sty){
+void * get_mem_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
     char section[] = "memory";
     struct mem_style * mem_sty = calloc(1, sizeof(struct mem_style));
 
-    struct component_entries * sect_fnd = NULL;
+    struct wb_style_sec * sect_fnd = NULL;
     HASH_FIND_STR(*entries, section, sect_fnd);
 
     if(!sect_fnd){
@@ -410,11 +323,11 @@ void * get_mem_sty(struct component_entries ** entries, struct m_style * main_st
 
 }
 
-void * get_temp_sty(struct component_entries ** entries, struct m_style * main_sty){
+void * get_temp_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
     char section[] = "temp";
     struct temp_style * temp_sty = calloc(1, sizeof(struct temp_style));
 
-    struct component_entries * sect_fnd = NULL;
+    struct wb_style_sec * sect_fnd = NULL;
     HASH_FIND_STR(*entries, section, sect_fnd);
 
     if(!sect_fnd){

@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
-project(sdl_panel C)
+project(Waybro C)
 
 set(CMAKE_C_STANDARD 99)
-
+set(APP_NAME "waybro")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/src/module")
+set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 
 execute_process(
     COMMAND bash -c "../const.sh"
@@ -14,45 +16,31 @@ execute_process(
 message(STATUS "BKL_FLAGS = ${BKL_FLAGS}")
 
 find_package(PkgConfig REQUIRED)
-
-pkg_check_modules(PANGOCAIRO REQUIRED pangocairo)
-pkg_check_modules(SYSTEMD REQUIRED libsystemd)
-pkg_check_modules(PULSE REQUIRED libpulse)
-pkg_check_modules(NETLINK REQUIRED libnl-3.0)
-pkg_check_modules(GENL REQUIRED libnl-genl-3.0)
+pkg_check_modules(PANGO REQUIRED IMPORTED_TARGET pango)
+pkg_check_modules(PANGOCAIRO REQUIRED IMPORTED_TARGET pangocairo)
 
 add_executable(waybro 
     src/displayer.c
-    src/fetcher.c
-    src/brightnessfetch.c
-    src/volumefetch.c
-    src/handler.c
-    src/bluefetch.c
-    src/workspacefetch.c
-    src/timefetch.c
-    src/mpdfetch.c
+	src/loader.c
+	src/module.c
+	src/poll.c
+	src/render.c
     src/xdg-shell-client.c
     src/wlr-layer-shell.c
     src/mainpoll.c
     src/waylandstuff.c
     src/readconfig.c
     src/style.c
-    src/proc.c
-    src/memfetch.c
-    src/tempfetch.c
-	src/sd_bus_wrapper.c
-	src/module/network.c
-
-	test/nlscheme/nlscheme.c
+	src/style-basic.c
 )
 
 
 target_compile_options(waybro PRIVATE
-    $<$<CONFIG:Debug>:-O0 -g -fno-omit-frame-pointer -fsanitize=address,undefined>
+	$<$<CONFIG:Debug>:-O0 -g -fsanitize=undefined>
 )
 
 target_link_options(waybro PRIVATE
-    $<$<CONFIG:Debug>:-fsanitize=address,undefined>
+	$<$<CONFIG:Debug>:-O0 -g -fsanitize=undefined>
 )
 
 separate_arguments(BKL_FLAGS)
@@ -62,25 +50,30 @@ add_compile_definitions(
 )
 
 target_include_directories(waybro PRIVATE include)
-
-target_include_directories(waybro PRIVATE 
-				${GENL_INCLUDE_DIRS}
-				${NETLINK_INCLUDE_DIRS}
-				${PANGOCAIRO_INCLUDE_DIRS}
-				${SYSTEMD_INCLUDE_DIRS}
-				${PULSE_INCLUDE_DIRS}
-)
-
 target_link_libraries(waybro PRIVATE
     wayland-client
-	${GENL_LIBRARIES}
-	${NETLINK_LIBRARIES}
-    ${PANGOCAIRO_LIBRARIES}
-    ${SYSTEMD_LIBRARIES}
-	${PULSE_LIBRARIES}
+	PkgConfig::PANGO
+	PkgConfig::PANGOCAIRO
 	cairo
     dl
     m
 )
 
+add_library(waybro_api INTERFACE)
+
+target_include_directories(waybro_api INTERFACE include)
+
+target_compile_options(waybro_api INTERFACE
+	$<$<CONFIG:Debug>:-O0 -g -fsanitize=undefined>
+)
+
+target_link_options(waybro_api INTERFACE
+	$<$<CONFIG:Debug>:-O0 -g -fsanitize=undefined>
+)
+
+add_subdirectory(src/module/)
+
 install(TARGETS waybro DESTINATION bin)
+
+set_target_properties(waybro PROPERTIES BUILD_RPATH "\$ORIGIN/src/module")
+set_target_properties(waybro PROPERTIES INSTALL_RPATH "$ORIGIN/module")

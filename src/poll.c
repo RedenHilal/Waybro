@@ -32,12 +32,12 @@ struct wb_poll_fort * wb_poll_create(int pflag, int wflag){
 	if (fort == NULL)
 		goto fail;
 
-	if (getrlimit(RLIMIT_FSIZE, &fsize) != 0)
+	if (getrlimit(RLIMIT_NOFILE, &fsize) != 0)
 		goto fail;
 
 	fsize.rlim_cur = WB_POLL_FD_LIMIT;
 
-	if (setrlimit(RLIMIT_FSIZE, &fsize) != 0)
+	if (setrlimit(RLIMIT_NOFILE, &fsize) != 0)
 		goto fail;
 
 	int limit = fsize.rlim_cur;
@@ -435,4 +435,8 @@ void * wb_poll_reap_event(struct wb_poll_fort * fort, struct wb_poll_event * eve
 	event->handle = (struct wb_poll_handle *) event->handle->node.next;
 	return data;
 	
+}
+
+void * wb_poll_data_from_handle(struct wb_poll_handle * handle){
+	return handle->node.data;
 }
