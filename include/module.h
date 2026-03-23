@@ -1,24 +1,24 @@
 #ifndef WBRO_MODULE
 #define WBRO_MODULE
 
-#include "wb-style-base.h"
-
 
 struct wb_public_api {
-	const struct wb_style_api * style;
-	const struct wb_mod_api * mod;
-	const struct wb_render_api * render;
 };
+
+struct wb_widget_rect_data;
+struct wb_widget_text_data;
 
 struct wb_render;
 struct wb_context;
 struct wb_interest;
+struct wb_appstate;
 
 struct wb_style_sec;
 struct wb_style_unit;
 struct wb_style_base;
 struct wb_style_main;
 
+struct wb_config_setting;
 
 struct wb_event {
 	int fd;
@@ -26,22 +26,10 @@ struct wb_event {
 	void * data;
 };
 
-struct wb_data {
-	int id;
-	union {
-		char str_val[64];
-		int int_val;
-		double db_val;
-	};
-	// it is the responsible of the module to handle this had this be used
-	void * data;
-};
-
-
 struct module_interface {
 	char module_name[64];
 	/*
-	 * id is assigned through mod_init
+	 * id is assigned by 
 	 */
 	int id;
 
@@ -61,18 +49,30 @@ struct module_interface {
 	void * style;
 
 	/*
-	 * module must clean up rstyle
+	 * parse custom style
 	 */
-	void (* parse_sty)(struct wb_style_sec * rstyle, struct wb_style_main  * mstyle);
+	void (* parse_sty)(struct wb_config_setting * set, struct wb_style_main  * mstyle, 
+						struct wb_style_base * base);
 
 	int (* get_fd )(struct wb_context * ctx);
 
-	//send first message to populate the bar information
-	void (* set_up)(struct wb_context * ctx);
+	/*
+	 * prepare for the first emit
+	 * return module state
+	 * followed by emit_layout
+	 */
+	void * (* set_up)(struct wb_context * ctx);
 
-	void (* handle_event)(struct wb_event * event, struct wb_context * ctx);
+	/*
+	 * update module state
+	 */
+	void (* handle_event)(struct wb_event * event, struct wb_context * ctx,
+					void * state);
 
-	void (* handle_update)(struct wb_render * render, struct wb_data * data);
+	/* 
+	 * emit module layout from state
+	 */
+	void (* emit_layout)(struct wb_context * ctx, void * state);
 
 	void (* clean_up)();
 };
@@ -89,7 +89,7 @@ struct module_interface {
  */
 
 struct wb_mod_api {
-	int (* send_data)(struct wb_context * ctx, struct wb_data * data);
+	int (* trigger_update)(struct wb_context * ctx);
 
 	struct wb_poll_handle * (* reg_sub)(struct wb_context * ctx, int fd,
 									int wevent, void * udata, int id);
@@ -98,22 +98,10 @@ struct wb_mod_api {
 
 };
 
-struct wb_render_api {
-	void (* draw_rect)(struct wb_render * wrender, int x, int y,
-					int width, int height);
+struct wb_widget_api {
+	void (* draw_rect)(struct wb_widget_rect_data * data);
 
-	void (* expose_area)(struct wb_render * render, int x, int y,
-					int width, int height);
-
-	void (* erase_area)(struct wb_render * wrender, int x, int y,
-					int width, int height);
-
-	void (* draw_text)(struct wb_render * wrender, int x, int y,
-					const char * string);
-
-	void (* draw_text_special)(struct wb_render * wrender, int x, int y,
-					 const char * string);
-
+	void (* draw_text)(struct wb_widget_text_data * data);
 };
 
 struct wb_style_api {

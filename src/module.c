@@ -5,18 +5,8 @@
 #include "module.h"
 #include "poll.h"
 
-#include "api-table.h"
 
-const struct wb_mod_api wb_mod_api_table = {
-	.send_data = wb_mod_send_data,
-	.reg_sub = wb_mod_reg_sub,
-	.rmv_sub = wb_mod_rmv_sub
-};
 
-int wb_mod_send_data(struct wb_context * ctx,  struct wb_data * data)
-{
-	return write(ctx->pipe, data, sizeof(struct wb_data));
-}
 
 struct wb_poll_handle * wb_mod_reg_sub(struct wb_context * ctx, int fd,
 										int wevent, void * udata, int id)
