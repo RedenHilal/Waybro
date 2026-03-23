@@ -1,351 +1,300 @@
 #include "style.h"
+#include "config.h"
+#include "macro.h"
+
 #include <stdio.h>
+#include <stdlib.h>
+#include <stddef.h>
+#include <string.h>
 
-#define CLEAN_HASH(head,delptr) {HASH_DEL(head,delptr);free(delptr);}
-
-static char * const base_match[] = {
-    "width",
-    "height",
-    "x",
-    "y",
-    "font_size",
-    "enabled",
-    "rd_left",
-    "rd_right"
+struct config_dispatch {
+	char field_name[32];
+	union {
+		const char * default_str;
+		const char ** default_a_str;
+		const int default_int;
+		const int * default_a_int;
+		const double default_float;
+		const double * default_a_float;
+		void * default_ptr;
+	};
+	int array_size;
+	void ( *custom_parse)(void * start, const struct config_dispatch * dispatch,
+					struct wb_config_setting * mod_set);
+	int offset;
+	int field_type;
+	int field_modifier;
 };
 
-
-
-
-static int calc_pcpx(enum style_unit unit, int raw_val, int main_val){
-    if (unit == PCTG){
-        return (main_val * raw_val) / 100;
-    }
-    else if (unit == PX){
-        return raw_val;
-    }
-    else if (unit == NONE) {
-        return raw_val;
-    }
-
-    return raw_val;
-}
-
-static void get_base_width(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
-                           struct wb_style_main * main_sty){
-
-    base->width = calc_pcpx(sty_fnd->unit, sty_fnd->int_val, main_sty->width);
-}
-
-static void get_base_height(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
-                           struct wb_style_main * main_sty){
-
-    base->height = calc_pcpx(sty_fnd->unit, sty_fnd->int_val, main_sty->height);
-}
-
-static void get_base_fs(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
-                           struct wb_style_main * main_sty){
-
-    base->font_size = calc_pcpx(sty_fnd->unit, sty_fnd->int_val, main_sty->height);
-}
-
-static void get_base_x(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
-                           struct wb_style_main * main_sty){
-
-    base->x = sty_fnd->int_val;
-}
-
-static void get_base_y(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
-                           struct wb_style_main * main_sty){
-
-    base->y = sty_fnd->int_val;
-}
-
-static void get_base_enabled(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
-                           struct wb_style_main * main_sty){
-
-    base->enabled = sty_fnd->int_val;
-}
-
-static void get_base_rdl(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
-                           struct wb_style_main * main_sty){
-
-    base->rd_left = sty_fnd->int_val;
-}
-
-static void get_base_rdr(struct wb_style_base * base,struct wb_style_unit * sty_fnd, 
-                           struct wb_style_main * main_sty){
-
-    printf("rdr_val: %d\n",sty_fnd->int_val);
-    base->rd_right = sty_fnd->int_val;
-}
-
-static void(*base_dispatch[])(struct wb_style_base *, struct wb_style_unit*, struct wb_style_main*) = {
-    get_base_width,
-    get_base_height,
-    get_base_x,
-    get_base_y,
-    get_base_fs,
-    get_base_enabled,
-    get_base_rdl,
-    get_base_rdr
+unsigned int wb_style_type_size[] = {
+	[WB_STYLE_INT]		= sizeof(int),
+	[WB_STYLE_LL]		= sizeof(long long),
+	[WB_STYLE_BOOL]		= sizeof(int),
+	[WB_STYLE_FLOAT]	= sizeof(double),
+	[WB_STYLE_STRING]	= sizeof(char *),
+	[WB_STYLE_CUSTOM]	= sizeof(void *)
 };
 
-static inline void match_base_sty(struct wb_style_base * base,struct wb_style_unit * sty_fnd,
-                           int index, struct wb_style_main * main_sty){
+static const struct config_dispatch main_table[] = {
+	{
+		.field_name = "width",
+		.default_int = 1920,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, width)
+	},
+	{
+		.field_name = "height",
+		.default_int = 30,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, height)
+	},
+	{
+		.field_name = "fonts",
+		.default_a_str = (const char *[]){"Times New Roman", NULL},
+		.array_size = 1,
+		.field_type = WB_STYLE_STRING,
+		.field_modifier = WB_STYLE_ARRAY,
+		.offset = offsetof(struct wb_style_main, fonts)
+	},
+	{
+		.field_name = "fill_color",
+		.default_int = 0xffffffff,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, fill_color)
+	},
+	{
+		.field_name = "font_size",
+		.default_int = 12,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, font_size)
+	},
+	{
+		.field_name = "text_color",
+		.default_int = 0x0,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, text_color)
+	},
+	{
+		.field_name = "radius",
+		.default_int = 0,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, radius)
+	},
+	{
+		.field_name = "border_width",
+		.default_int = 0,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, border_width)
+	},
+	{
+		.field_name = "border_color",
+		.default_int = 0x0,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, border_color)
+	},
+	{
+		.field_name = "group_color",
+		.default_int = 0x0,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, group_color)
+	},
+	{
+		.field_name = "group_radius",
+		.default_int = 0,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, group_radius)
+	},
+	{
+		.field_name = "group_border_width",
+		.default_int = 0,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, group_border_width)
+	},
+	{
+		.field_name = "group_border_color",
+		.default_int = 0x0,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, group_border_color)
+	},
+	{
+		.field_name = "module_radius",
+		.default_int = 0,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, module_radius)
+	},
+	{
+		.field_name = "module_border_width",
+		.default_int = 0,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, module_border_width)
+	},
+	{
+		.field_name = "module_border_color",
+		.default_int = 0x0,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, module_border_color)
+	},
+	{
+		.field_name = "module_color",
+		.default_int = 0x0,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, module_color)
+	},
+	{
+		.field_name = "module_color_hover",
+		.default_int = 0x0,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_main, module_color_hover)
+	}
+};
 
-    base_dispatch[index](base,sty_fnd,main_sty);
+static const struct config_dispatch base_table[] = {
+	{
+		.field_name = "width",
+		.default_int = 70,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_base, width)
+	},
+	{
+		.field_name = "margin_left",
+		.default_int = 0,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_base, margin_left)
+	},
+	{
+		.field_name = "margin_right",
+		.default_int = 0,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct wb_style_base, margin_right)
+	}
+};
+
+static void
+log_config_value(void * target, const struct config_dispatch * dispatch)
+{
+	printf("Config %s:\n", dispatch->field_name);
+
+	switch(dispatch->field_type) {
+		case WB_STYLE_INT:
+				printf("%d\n", *(int *)target);
+				break;
+		case WB_STYLE_LL:
+				printf("%ld\n", *(long long int *)target);
+				break;
+		case WB_STYLE_BOOL:
+				printf("%s\n", *(int *)target? "True": "False");
+				break;
+		case WB_STYLE_FLOAT:
+				printf("%f\n", *(double *)target);
+				break;
+		case WB_STYLE_STRING:
+				printf("%s\n", (char *)target);
+				break;
+		case WB_STYLE_CUSTOM:
+				break;
+	}
 }
 
-static int get_fmt(char * dest, struct wb_style_sec * entry){
+/*
+ * TODO
+ * add type safety for scalar and nonscalar data type
+ */
+static void
+wb_style_assign_field(void * start, const struct config_dispatch * dispatch,
+			struct wb_config_setting * mod_set)
+{
+	char * target = (char *)start;
 
-    struct wb_style_unit * sty_fnd = NULL;
-    HASH_FIND_STR(entry->style, "format", sty_fnd);
+	int res = wb_config_s_lookup(mod_set, dispatch->field_name,
+					target, dispatch->field_type);
 
-    if(!sty_fnd)
-        return -1;
+	if (res < 0) {
+		memcpy(target, &dispatch->default_int, wb_style_type_size[dispatch->field_type]);
+	}
 
+	log_config_value(target, dispatch);
+}
+
+/*
+ * actually scalar data types were passed as well
+ */
+static void
+wb_style_handle_nonscalar(void * start, const struct config_dispatch * dispatch,
+				struct wb_config_setting * mod_set)
+{
+	char * target = start;
+	struct wb_config_setting * elm;
+	target += dispatch->offset;
+
+	int res;
+	void ** arr = (void **)&target;
+	
+	switch (dispatch->field_modifier){
+		case WB_STYLE_ARRAY:
+				res = wb_config_parse_array(mod_set, arr, dispatch->field_type);
+				target = dispatch->default_ptr;
+				break;
+		case WB_STYLE_LIST:
+				/*
+				 * TODO
+				 * idk implementation of list parsing
+				 * let's just put custom parse as for now
+				 */
+				//if (!wb_config_is_list(mod_set))
+				//		goto invalid_type;
+
+				dispatch->custom_parse(target, dispatch, mod_set);
+				break;
+		default:
+				wb_style_assign_field(target, dispatch, mod_set);
+				break;
+	}
+
+	invalid_type:
+	target = dispatch->default_ptr;
+}
+
+/*
+ * TODO
+ * Refactor style function
+ * main_style allocated dynamically
+ * but base_style allocated statically
+ */
+struct wb_style_main *
+wb_style_get_main(struct wb_config_setting * mod_set)
+{
+	struct wb_style_main * msty = malloc(sizeof(struct wb_style_main));
+	if (msty == NULL)
+		ON_ERR("Failed allocation on main style")
+
+	int nfield = sizeof(main_table) / sizeof(main_table[0]);
+	printf("main fields: %d\n", nfield);
+	
+	for (int i = 0; i < nfield; i++){
+			wb_style_handle_nonscalar(msty, &main_table[i], mod_set);
+	}
+	return msty;
+
+}
+
+void
+wb_style_get_base(struct wb_style_base * base, struct wb_config_setting * mod_set,
+				struct wb_style_main * msty)
+{
     
-    strncpy(dest, sty_fnd->str_val, 64);
-    return 0;
-}
-
-static int get_interval( struct wb_style_sec * entry){
-
-    struct wb_style_unit * sty_fnd = NULL;
-    HASH_FIND_STR(entry->style, "interval", sty_fnd);
-
-    if (!sty_fnd)
-        return 60;
-
-    return sty_fnd->int_val;
-}
-
-
-
-void get_base_sty(struct wb_style_base * base, struct wb_style_sec * entry,
-                  struct wb_style_main * main_sty){
-    
-    struct wb_style_unit * sty_fnd = NULL;
-    int iter = sizeof(base_match)/sizeof(base_match[0]);
+    int iter = sizeof(base_table)/sizeof(base_table[0]);
 
     for(int i = 0; i < iter; i++){
-
-        HASH_FIND_STR(entry->style, base_match[i], sty_fnd);
-
-        if(!sty_fnd){
-            base->enabled = 0;
-            continue;
-        }
-
-        match_base_sty(base, sty_fnd, i, main_sty);
-        sty_fnd = NULL;
+		wb_style_handle_nonscalar(base, &base_table[i], mod_set);
     }
 
 }
 
-
-
-void * get_tm_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
-
-    char section[] = "time";
-    struct tm_style * tm_sty = calloc(1,sizeof(struct tm_style));
-
-    struct wb_style_sec * sect_fnd = NULL;
-    HASH_FIND_STR(*entries, section, sect_fnd);
-
-    if(!sect_fnd){
-        tm_sty->base.enabled = 0;
-        return tm_sty;
-    }
-
-    get_base_sty(&tm_sty->base, sect_fnd, main_sty);
-    int res = get_fmt(tm_sty->format, sect_fnd);
-
-    if(res < 0)
-        tm_sty->base.enabled = 0;
-
-    CLEAN_HASH(*entries, sect_fnd);
-
-    return tm_sty;
-}
-
-void * get_brght_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
-
-    char section[] = "brightness";
-    struct brightness_style * brght_sty = calloc(1,sizeof(struct brightness_style));
-
-    struct wb_style_sec * sect_fnd = NULL;
-    HASH_FIND_STR(*entries, section, sect_fnd);
-
-    if(!sect_fnd){
-        brght_sty->base.enabled = 0;
-        return brght_sty;
-    }
-
-    get_base_sty(&brght_sty->base, sect_fnd, main_sty);
-    int res = get_fmt(brght_sty->format, sect_fnd);
-
-    if (res < 0)
-        brght_sty->base.enabled = 0;
-
-    CLEAN_HASH(*entries, sect_fnd);
-
-    return brght_sty;
-}
-
-void * get_vol_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
-
-    char section[] = "volume";
-    struct vol_style * vol_sty = calloc(1,sizeof(struct vol_style));
-
-    struct wb_style_sec * sect_fnd = NULL;
-    HASH_FIND_STR(*entries, section, sect_fnd);
-
-    if(!sect_fnd){
-        vol_sty->base.enabled = 0;
-        return vol_sty;
-    }
-
-    get_base_sty(&vol_sty->base, sect_fnd, main_sty);
-    int res = get_fmt(vol_sty->format, sect_fnd);
-
-    if (res < 0)
-        vol_sty->base.enabled = 0;
-
-    CLEAN_HASH(*entries, sect_fnd);
-
-    return vol_sty;
-}
-
-void * get_blue_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
-
-    char section[] = "bluetooth";
-    struct blue_style * blue_sty = calloc(1,sizeof(struct blue_style));
-
-    struct wb_style_sec * sect_fnd = NULL;
-    HASH_FIND_STR(*entries, section, sect_fnd);
-
-    if(!sect_fnd){
-        blue_sty->base.enabled = 0;
-        return blue_sty;
-    }
-
-    get_base_sty(&blue_sty->base, sect_fnd, main_sty);
-    int res = get_fmt(blue_sty->format, sect_fnd);
-
-    if (res < 0)
-        blue_sty->base.enabled = 0;
-
-    CLEAN_HASH(*entries, sect_fnd);
-
-    return blue_sty;
-}
-
-void * get_net_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
-
-    char section[] = "network";
-    struct net_style * net_sty = calloc(1,sizeof(struct net_style));
-
-    struct wb_style_sec * sect_fnd = NULL;
-    HASH_FIND_STR(*entries, section, sect_fnd);
-
-    if(!sect_fnd){
-        net_sty->base.enabled = 0;
-        return net_sty;
-    }
-
-    get_base_sty(&net_sty->base, sect_fnd, main_sty);
-    int res = get_fmt(net_sty->format, sect_fnd);
-
-    if (res < 0)
-        net_sty->base.enabled = 0;
-
-    CLEAN_HASH(*entries, sect_fnd);
-
-    return net_sty;
-}
-
-
-void * get_mpd_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
-
-    char section[] = "mpd";
-    struct mpd_style * mpd_sty = calloc(1,sizeof(struct mpd_style));
-
-    struct wb_style_sec * sect_fnd = NULL;
-    HASH_FIND_STR(*entries, section, sect_fnd);
-
-    if(!sect_fnd){
-        mpd_sty->base.enabled = 0;
-        return mpd_sty;
-    }
-
-    get_base_sty(&mpd_sty->base, sect_fnd, main_sty);
-    int res = get_fmt(mpd_sty->format, sect_fnd);
-
-    if (res < 0)
-        mpd_sty->base.enabled = 0;
-
-    CLEAN_HASH(*entries, sect_fnd);
-
-    return mpd_sty;
-}
-
-void * get_sys_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
-    return NULL;
-}
-
-void * get_mem_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
-    char section[] = "memory";
-    struct mem_style * mem_sty = calloc(1, sizeof(struct mem_style));
-
-    struct wb_style_sec * sect_fnd = NULL;
-    HASH_FIND_STR(*entries, section, sect_fnd);
-
-    if(!sect_fnd){
-        mem_sty->base.enabled = 0;
-        mem_sty->it_sec = 10;
-        return mem_sty;
-    }
-
-    get_base_sty(&mem_sty->base, sect_fnd, main_sty);
-    int res = get_fmt(mem_sty->format, sect_fnd);
-
-    if (res < 0)
-        mem_sty->base.enabled = 0;
-
-    res = get_interval(sect_fnd);
-    mem_sty->it_sec = res;
-
-    CLEAN_HASH(*entries, sect_fnd);
-
-    return mem_sty;
-
-}
-
-void * get_temp_sty(struct wb_style_sec ** entries, struct wb_style_main * main_sty){
-    char section[] = "temp";
-    struct temp_style * temp_sty = calloc(1, sizeof(struct temp_style));
-
-    struct wb_style_sec * sect_fnd = NULL;
-    HASH_FIND_STR(*entries, section, sect_fnd);
-
-    if(!sect_fnd){
-        temp_sty->base.enabled = 0;
-        temp_sty->it_sec = 10;
-        return temp_sty;
-    }
-
-    get_base_sty(&temp_sty->base, sect_fnd, main_sty);
-    int res = get_fmt(temp_sty->format, sect_fnd);
-
-    if (res < 0)
-        temp_sty->base.enabled = 0;
-
-    res = get_interval(sect_fnd);
-    temp_sty->it_sec = res;
-
-    CLEAN_HASH(*entries, sect_fnd);
-
-    return temp_sty;
+void
+wb_style_parse_config(struct config_dispatch * dp, int length,
+				void * start, struct wb_config_setting * mod_set)
+{
+	for (int i = 0; i < length; i++){
+		wb_style_handle_nonscalar(start, &dp[i], mod_set);
+	}
 }
