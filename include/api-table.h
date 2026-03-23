@@ -21,29 +21,10 @@ char * wb_style_str_by_format(char * format, char * str_val);
 void wb_style_get_base(struct wb_style_base * base, struct wb_style_sec * sec,
 						struct wb_style_main * msty);
 /*
- * rendering utility
- */
-
-void wb_render_draw_rect(struct wb_render * wrender, int x, int y,
-						int width, int height);
-
-void wb_render_expose_area(struct wb_render * wrender, int x, int y,
-						int width, int height);
-
-void wb_render_erase_area(struct wb_render * wrender, int x, int y,
-						int width, int height);
-
-void wb_render_draw_text(struct wb_render * wrender, int x, int y,
-						const char * string);
-
-void wb_render_draw_text_special(struct wb_render * wrender, int x, int y,
-						const char * string);
-
-/*
  * public api
  */
 extern const struct wb_style_api wb_style_api_table;
 extern const struct wb_mod_api wb_mod_api_table;
-extern const struct wb_render_api wb_render_api_table;
+extern const struct wb_widget_api wb_widget_api_table;
 
 #endif

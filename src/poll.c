@@ -276,6 +276,7 @@ struct wb_poll_handle * wb_poll_reg_events(struct wb_poll_fort * fort,
 		epoll_event.data.ptr = obj;
 
 		res = epoll_ctl(fort->wfd, EPOLL_CTL_ADD, fd, &epoll_event);
+		printf("res : %d, wevent = %d, event = %d, EPOLLREAD = %d\n", res, wevent, events, EPOLLIN);
 	}
 
 #elif defined(A_KQUEUE)
@@ -377,7 +378,10 @@ int wb_poll_wait_events(struct wb_poll_fort * fort, struct wb_poll_event * event
 
 #if defined(A_EPOLL)
 	struct epoll_event e_events[nevents];
+
+	printf("evcount \n");
 	ev_count = epoll_wait(fort->wfd, e_events, nevents, timeouts);
+	printf("evcount %d\n", ev_count);
 
 	for (int i = 0; i < ev_count; i++){
 		struct wb_poll_fd_obj * obj = e_events[i].data.ptr;

@@ -91,7 +91,7 @@ static char * get_str_by_format(char * format, char * str_val){
     return str_fmt;
 }
 
-static inline void erase_rect_area(struct appstate* appstate, int x,int y,int width, int height){
+static inline void erase_rect_area(struct wb_appstate* appstate, int x,int y,int width, int height){
     cairo_save(appstate->cai_context);
     cairo_set_operator(appstate->cai_context, CAIRO_OPERATOR_CLEAR);
     cairo_rectangle(appstate->cai_context, x, y, width, height);
@@ -99,13 +99,13 @@ static inline void erase_rect_area(struct appstate* appstate, int x,int y,int wi
     cairo_restore(appstate->cai_context);
 }
 
-		static inline void expose_rect_area(struct appstate * appstate,int x,int y, int width, int height){
+		static inline void expose_rect_area(struct wb_appstate * appstate,int x,int y, int width, int height){
 			wl_surface_attach(appstate->surface,appstate->buffer,0,0);
 			wl_surface_damage(appstate->surface, x,  y, width, height);
 			wl_surface_commit(appstate->surface);
 		}
 
-		static inline void render_text(struct appstate * appstate, int x, int y, int fontsize, const char* string){
+		static inline void render_text(struct wb_appstate * appstate, int x, int y, int fontsize, const char* string){
 			//cairo_select_font_face(appstate->cai_context, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 			cairo_set_font_size(appstate->cai_context,fontsize);
 			cairo_set_source_rgba(appstate->cai_context, 1, 1, 1, ALPHA);
@@ -113,7 +113,7 @@ static inline void erase_rect_area(struct appstate* appstate, int x,int y,int wi
 			cairo_show_text(appstate->cai_context, string);
 		}
 
-		static inline void draw_rect(struct appstate * appstate, int x, int y, int width, int height){
+		static inline void draw_rect(struct wb_appstate * appstate, int x, int y, int width, int height){
 			
 			struct wb_style_main * m_sty = appstate->m_style;
 			cairo_set_source_rgba(appstate->cai_context, TO_RGB_FMT(m_sty->r), TO_RGB_FMT(m_sty->g),
@@ -123,7 +123,7 @@ static inline void erase_rect_area(struct appstate* appstate, int x,int y,int wi
 			cairo_fill(appstate->cai_context);
 		}
 
-		static inline void draw_rect_spc(struct appstate * appstate, int x, int y, int width, int height,
+		static inline void draw_rect_spc(struct wb_appstate * appstate, int x, int y, int width, int height,
 								  uint8_t r, uint8_t g, uint8_t b, uint8_t a){
 			cairo_set_source_rgba(appstate->cai_context, TO_RGB_FMT(r), TO_RGB_FMT(g),
 								  TO_RGB_FMT(b), TO_ALPHA(a));
@@ -135,7 +135,7 @@ static inline void erase_rect_area(struct appstate* appstate, int x,int y,int wi
 		static void render_resource(void * data, const char * path,
 									int x, int y, int width,int height){
 
-	struct appstate * appstate = data;
+	struct wb_appstate * appstate = data;
 	resources = cairo_image_surface_create_from_png(path);
     if(cairo_surface_status(resources) != CAIRO_STATUS_SUCCESS)
         ON_ERR("load resources - handler")
@@ -163,7 +163,7 @@ void * handle_sysclick(void * data){
 void * handle_workspace(void * data){
 
     Event event = *(Event *) data;
-    struct appstate * appstate = event.appstate;
+    struct wb_appstate * appstate = event.appstate;
     struct ws_style * style = event.styles;
     struct wb_style_base * base = &style->base;
     struct wb_style_main * main_sty = appstate->m_style;
@@ -243,7 +243,7 @@ void * handle_time(void * data){
 
 
     int minutes = event.value;
-    struct appstate * appstate = event.appstate;
+    struct wb_appstate * appstate = event.appstate;
     struct wb_style_main * m_sty = appstate->m_style;
     struct tm_style * style = event.styles;
     struct wb_style_base * base = &style->base;
@@ -272,7 +272,7 @@ void * handle_brightness(void * data){
 
 
     Event event = *(Event *) data;
-    struct appstate * appstate = event.appstate;
+    struct wb_appstate * appstate = event.appstate;
 
     struct brightness_style * style = event.styles;
     struct wb_style_base * base = &style->base;
@@ -301,7 +301,7 @@ void * handle_brightness(void * data){
 void * handle_volume(void * data){
 
     Event event = *(Event *) data;
-    struct appstate * appstate = event.appstate;
+    struct wb_appstate * appstate = event.appstate;
 
     struct vol_style * style = event.styles;
     struct wb_style_base * base = &style->base;
@@ -330,7 +330,7 @@ void * handle_volume(void * data){
 void * handle_bluetooth(void * data){
 
     Event event = *(Event *) data;
-    struct appstate * appstate = event.appstate;
+    struct wb_appstate * appstate = event.appstate;
 
     struct wb_style_main * m_sty = appstate->m_style;
     struct blue_style * style = event.styles;
@@ -360,7 +360,7 @@ void * handle_bluetooth(void * data){
 void * handle_network(void * data){
 
     Event event = *(Event *) data;
-    struct appstate * appstate = event.appstate;
+    struct wb_appstate * appstate = event.appstate;
     struct net_style * style = event.styles;
     struct wb_style_base * base = &style->base;
     struct wb_style_main * m_sty = appstate->m_style;
@@ -395,7 +395,7 @@ void * handle_power(void * data){
 
     
     Event event = *(Event *) data;
-    struct appstate * appstate = event.appstate;
+    struct wb_appstate * appstate = event.appstate;
     struct wb_style_main * m_sty = appstate->m_style;
     struct power_style * style = event.styles;
     struct wb_style_base * base = &style->base;
@@ -437,7 +437,7 @@ void * handle_mpd(void * data){
     Event event = *(Event *)data;
     struct mpd_style * style = event.styles;
     struct wb_style_base * base = &style->base;
-    struct appstate * appstate = event.appstate;
+    struct wb_appstate * appstate = event.appstate;
     struct wb_style_main * m_sty = appstate->m_style;
 
     switch (event.specifier) {
@@ -480,7 +480,7 @@ void * handle_mem(void * data){
     Event event = *(Event *)data;
     struct mem_style * style = event.styles;
     struct wb_style_base * base = &style->base;
-    struct appstate * appstate = event.appstate;
+    struct wb_appstate * appstate = event.appstate;
     struct wb_style_main * m_sty = appstate->m_style;
 
     char buffer[16];
@@ -513,7 +513,7 @@ void * handle_temp(void * data){
     Event event = *(Event *)data;
     struct temp_style * style = event.styles;
     struct wb_style_base * base = &style->base;
-    struct appstate * appstate = event.appstate;
+    struct wb_appstate * appstate = event.appstate;
     struct wb_style_main * m_sty = appstate->m_style;
 
     char buffer[16];

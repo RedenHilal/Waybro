@@ -11,4 +11,10 @@
 
 #define ON_ERR(trigger) {printf("ERR on: %s\n", trigger); perror(trigger); exit(1);}
 
+#define GET_RED(color)		(double)((color >> 24) & 0xff) / 255
+#define GET_GREEN(color)	(double)((color >> 16) & 0xff) / 255
+#define GET_BLUE(color)		(double)((color >> 8) & 0xff) / 255
+#define GET_ALPHA(color)	(double)(color & 0xff) / 255
+
+
 #endif
