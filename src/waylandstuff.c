@@ -3,9 +3,11 @@
 #include "core.h"
 #include "render.h"
 #include "macro.h"
+#include "widget.h"
+#include "comm.h"
 
 struct cb_data {
-	struct appstate * appstate;
+	struct wb_appstate * appstate;
 	struct wb_render * wrender;
 };
 
@@ -28,11 +30,11 @@ int alc_shm(uint64_t size){
 
 }
 
-void draw(struct appstate* appstate){
+void draw(struct wb_appstate* appstate){
     
 }
 
-void resize(struct appstate* appstate, struct wb_render * wrender){
+void resize(struct wb_appstate* appstate, struct wb_render * wrender){
 
     struct wb_style_main * main_sty = wrender->m_style;
 
@@ -51,12 +53,14 @@ void resize(struct appstate* appstate, struct wb_render * wrender){
     
     wl_shm_pool_destroy(pool);
     close(fd);
+
+	wb_layout_context_init(wrender);
 }
 
 
 static void wl_callback_done(void * data, struct wl_callback * callback, uint32_t callback_data){
     struct cb_data * cb_data = data;
-	struct appstate * appstate = cb_data->appstate;
+	struct wb_appstate * appstate = cb_data->appstate;
     wl_callback_destroy(callback);
     resize(appstate, cb_data->wrender);
     draw(appstate);
@@ -69,7 +73,7 @@ const struct wl_callback_listener wl_callback_listener = {
 static void zwlr_surface_configure(void * data, struct zwlr_layer_surface_v1 * surface,
                                     uint32_t serial,uint32_t width, uint32_t height){
     struct cb_data * cb_data = data;
-	struct appstate *appstate = cb_data->appstate;
+	struct wb_appstate *appstate = cb_data->appstate;
 
     zwlr_layer_surface_v1_ack_configure(surface, serial);
 
@@ -91,7 +95,7 @@ static const struct zwlr_layer_surface_v1_listener zwlr_surface_listener = {
 };
 
 void xdg_ping(void*data, struct xdg_wm_base * base, uint32_t serial){
-    //struct appstate * appstate = data;
+    //struct wb_appstate * appstate = data;
     xdg_wm_base_pong(base,serial);
     
 }
@@ -124,7 +128,7 @@ static void wl_output_name(void * data, struct wl_output * wl_output, const char
 }
 
 
-static const struct wl_output_listener wl_output_listener={
+static const struct wl_output_listener wl_output_listener = {
     .geometry=geometry,
     .mode=mode,
     .done=wl_output_done,
@@ -132,9 +136,112 @@ static const struct wl_output_listener wl_output_listener={
     .name=wl_output_name
 };
 
+static void
+wl_pointer_enter(void * data, struct wl_pointer * pointer, uint32_t serial,
+				struct wl_surface * surface, wl_fixed_t x, wl_fixed_t y)
+{
+	printf("enter = x: %d, y: %d\n", x, y);
+}
+
+static void
+wl_pointer_leave(void * data, struct wl_pointer * pointer, uint32_t serial,
+				struct wl_surface * surface)
+{
+	printf("leave\n");
+}
+
+static void
+wl_pointer_frame(void * data, struct wl_pointer * pointer)
+{
+
+	printf("frame\n");
+}
+
+static void
+wl_pointer_motion(void * data, struct wl_pointer * pointer, uint32_t time,
+				wl_fixed_t x, wl_fixed_t y)
+{
+	printf("enter = x: %d, y: %d\n", x, y);
+}
+
+static void
+wl_pointer_button(void * data, struct wl_pointer * pointer, uint32_t serial,
+				uint32_t time, uint32_t button, uint32_t state)
+{
+
+}
+
+static void
+wl_pointer_axis(void * data, struct wl_pointer * pointer, uint32_t time,
+				uint32_t axis, wl_fixed_t value)
+{
+
+}
+
+static void
+wl_pointer_axis_source(void * data, struct wl_pointer * pointer, uint32_t axis_source)
+{
+
+}
+
+static void
+wl_pointer_axis_stop(void * data, struct wl_pointer * pointer, uint32_t time,
+				uint32_t axis){
+	
+}
+
+static void
+wl_pointer_axis_discrete(void * data, struct wl_pointer * pointer, uint32_t axis,
+				int discrete)
+{
+
+}
+
+static const struct wl_pointer_listener wl_pointer_listener = {
+	.enter = wl_pointer_enter,
+	.leave = wl_pointer_leave,
+	.frame = wl_pointer_frame,
+	.motion = wl_pointer_motion,
+	.button = wl_pointer_button,
+	.axis = wl_pointer_axis,
+	.axis_source = wl_pointer_axis_source,
+	.axis_stop = wl_pointer_axis_stop,
+	.axis_discrete = wl_pointer_axis_discrete
+};
+
+static void
+wl_seat_capabilitites(void * data, struct wl_seat * seat, uint32_t capability)
+{
+	struct wb_appstate * appstate = data;
+
+	int has_pointer = capability & WL_SEAT_CAPABILITY_POINTER;
+
+	if (appstate->pointer == NULL && has_pointer){
+		printf("bind pointer\n");
+		appstate->pointer = wl_seat_get_pointer(appstate->seat);
+		wl_pointer_add_listener(appstate->pointer, &wl_pointer_listener, appstate);
+	}
+	else if (appstate->pointer && !has_pointer){
+		printf("free pointer\n");
+		wl_pointer_release(appstate->pointer);
+		appstate->pointer = NULL;
+	}
+}
+
+static void
+wl_seat_name(void * data, struct wl_seat * seat, const char * name)
+{
+	
+}
+
+static const struct wl_seat_listener wl_seat_listener = {
+	.capabilities = wl_seat_capabilitites,
+	.name = wl_seat_name
+};
+
 static void wl_registry_global(void * data, struct wl_registry* registry,uint32_t name, const char* interface, uint32_t version){
     //printf("interface: '%s', version: %d, name: %d\n", interface, version, name);
-    struct appstate *appstate = data; 
+    struct wb_appstate *appstate = data; 
 
     if (!strcmp(interface, wl_compositor_interface.name)){
         appstate->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 4);
@@ -153,21 +260,21 @@ static void wl_registry_global(void * data, struct wl_registry* registry,uint32_
     else if (!strcmp(interface, zwlr_layer_shell_v1_interface.name)){
         appstate->zwlr_sh = wl_registry_bind(registry, name, &zwlr_layer_shell_v1_interface, 1);
     }
+	else if (!strcmp(interface, wl_seat_interface.name)){
+		appstate->seat = wl_registry_bind(registry, name, &wl_seat_interface, version);
+		wl_seat_add_listener(appstate->seat, &wl_seat_listener, appstate);
+	}
 }
 
 static void wl_registry_global_remove(void* data, struct wl_registry* registry, uint32_t name){
 
 }
 
-int setwayland(struct appstate * appstate, struct wb_render * wrender){
+int setwayland(struct wb_appstate * appstate, struct wb_render * wrender){
 
 	struct cb_data * cb_data = malloc(sizeof(struct cb_data));
 	cb_data->appstate = appstate;
 	cb_data->wrender = wrender;
-
-    // Below are the structs passed onto each listener,
-    // except for the xdg_wm_base listener. would make up inconsistensy 
-    // in the appstate struct, hence its manually passed at the registry global
 
     const struct wl_registry_listener listener = {
 			.global = wl_registry_global,
@@ -182,13 +289,15 @@ int setwayland(struct appstate * appstate, struct wb_render * wrender){
     wl_display_roundtrip(appstate->display);
     
     appstate->surface = wl_compositor_create_surface(appstate->compositor);
+	appstate->region = wl_compositor_create_region(appstate->compositor);
+
     struct zwlr_layer_surface_v1 * zwlr_surface = zwlr_layer_shell_v1_get_layer_surface(
 					appstate->zwlr_sh, appstate->surface, appstate->output,
 					ZWLR_LAYER_SHELL_V1_LAYER_TOP, "zwlr_layer");
     appstate->zwlr_srfc = zwlr_surface;
 
     zwlr_layer_surface_v1_set_anchor(zwlr_surface, ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | 
-					ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
+				ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
 
     zwlr_layer_surface_v1_set_size(zwlr_surface, main_sty->width, main_sty->height);
     zwlr_layer_surface_v1_set_exclusive_zone(zwlr_surface, main_sty->height);

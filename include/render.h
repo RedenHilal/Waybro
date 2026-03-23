@@ -12,13 +12,14 @@
 #define INV_RGB(num) 255.0-TO_DOUBLE(num)
 #define TO_ALPHA(num) TO_DOUBLE(num)/100.0
 
-struct appstate;
+struct wb_appstate;
+struct wb_style_main;
+struct wb_layout;
 
-struct wb_render{
-    cairo_surface_t * cai_srfc;
-    cairo_t * cai_context;
-    struct wb_style_main * m_style;
-	struct appstate * appstate;
+struct wb_render {
+	cairo_t * cai_context;
+	cairo_surface_t * cai_srfc;
+	struct wb_style_main * m_style;
 };
 
 #endif
