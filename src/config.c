@@ -65,6 +65,8 @@ struct wb_config_setting *
 wb_config_get_setting(struct wb_config * wcfg, const char * path)
 {
 	config_setting_t * ret = config_lookup(&wcfg->cfg, path);
+	if (ret == NULL)
+			return NULL;
 
 	struct wb_config_setting * setting;
 	setting = malloc(sizeof(struct wb_config_setting));
@@ -80,6 +82,8 @@ wb_config_s_get_setting(struct wb_config_setting * set, const char * path)
 {
 	config_setting_t * s = set->setting;
 	config_setting_t * ret = config_setting_lookup(s, path);
+	if (ret == NULL)
+			return NULL;
 
 	struct wb_config_setting * setting;
 	setting = malloc(sizeof(struct wb_config_setting));
@@ -94,6 +98,8 @@ struct wb_config_setting *
 wb_config_s_by_index(struct wb_config_setting * set, int index)
 {
 	config_setting_t * ret = config_setting_get_elem(set->setting, index);
+	if (ret == NULL)
+			return NULL;
 
 	struct wb_config_setting * setting;
 	setting = malloc(sizeof(struct wb_config_setting));
@@ -233,6 +239,7 @@ wb_config_elem_by_index(struct wb_config_setting * set, void * start, int type, 
 int
 wb_config_parse_array(struct wb_config_setting * set, void ** data, int type)
 {
+	
 	if (config_setting_is_array(set->setting) == CONFIG_FALSE)
 			return -1;
 

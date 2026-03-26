@@ -4,6 +4,7 @@
 #include "core.h"
 #include "layout.h"
 #include "module.h"
+#include "render.h"
 
 struct module_group {
 	int index;
@@ -114,10 +115,10 @@ wb_bar_render(struct module_context * mod_ctx)
 }
 
 void
-wb_bar_init(struct module_context * mod_ctx)
+wb_bar_init(struct wb_render * wrender)
 {
-	struct wb_context * ctx = mod_ctx->ctx;
-	struct wb_style_main * msty = ctx->msty;
+	struct wb_style_main * msty = wrender->m_style;
 
+	wb_layout_context_init(wrender);
 	wb_layout_font_init(msty->fonts);
 }

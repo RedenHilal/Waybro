@@ -10,6 +10,7 @@
 #include "config.h"
 #include "layout.h"
 #include "widget.h"
+#include "bar.h"
 
 #include "clay.h"
 #include "macro.h"
@@ -47,15 +48,10 @@ parse_mod_stys(struct module_interface ** interfaces, int mod_count,
  * Font config
  */
 static void
-widget_init(struct wb_render * wrender, struct module_context * mod_ctx)
+widget_init(struct wb_render * wrender)
 {
 	struct wb_style_main * msty = wrender->m_style;
 	wb_layout_arena_allocate(msty->width, msty->height);
-	char * fonts[] = {
-		"Times New Roman"
-	};
-
-	wb_layout_font_init(fonts);
 }
 
 static void
@@ -124,7 +120,8 @@ int main()
 	struct wb_context wb_ctx = {
 			.appstate = &appstate,
 			.ilist = &ilist,
-			.layout = &layout
+			.layout = &layout,
+			.msty = m_style
 	};
 
 	struct module_context mod_ctx = {
@@ -143,6 +140,7 @@ int main()
 	mutex_init(&mod_ctx);
 	states_init(&mod_ctx);
 
+	widget_init(&wrender);
     setwayland(&appstate, &wrender);
     wl_display_dispatch_pending(appstate.display);
 
@@ -155,7 +153,6 @@ int main()
 	struct wb_poll_handle * wlfd_handle = wb_poll_reg_events(fort, wlfd,
 													WB_EVENT_READ, NULL);
     
-	//widget_init(&wrender);
 
     if (pthread_create(&threadID, NULL, mainpoll, &mod_ctx) != 0)
         ON_ERR("pthread cretae - displayer")
@@ -165,7 +162,6 @@ int main()
 	 */
 	sem_wait(&sem);
 	char dump[1024];
-
 
     while (1){
 
@@ -188,6 +184,7 @@ int main()
 				/*
 				 * render bar
 				 */
+				wb_bar_render(&mod_ctx);
 
             }
 

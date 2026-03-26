@@ -35,6 +35,25 @@ enum wb_style_field_modifier {
 	WB_STYLE_LIST
 };
 
+struct config_dispatch {
+	char field_name[32];
+	union {
+		const char * default_str;
+		const char ** default_a_str;
+		const int default_int;
+		const int * default_a_int;
+		const double default_float;
+		const double * default_a_float;
+		void * default_ptr;
+	};
+	int array_size;
+	void ( *custom_parse)(void * start, const struct config_dispatch * dispatch,
+					struct wb_config_setting * mod_set);
+	int offset;
+	int field_type;
+	int field_modifier;
+};
+
 struct wb_style_main {
     int width;
     int height;
@@ -42,11 +61,6 @@ struct wb_style_main {
 	int padding;
 	int fill_color;
 
-	/*
-	 * allocated into
-	 * char fonts[n + 1][WB_STYLE_STR_SIZE]
-	 * with last element fonts[n + 1][] as null bound
-	 */
 	char ** fonts;
 	int font_size;
 
@@ -73,7 +87,9 @@ struct wb_style_main {
 struct wb_style_main *
 wb_style_get_main(struct wb_config_setting * wcfg);
 
-
+void
+wb_style_parse_config(struct config_dispatch * dp, int length, void * start,
+				struct wb_config_setting * set);
 
 // unused
 

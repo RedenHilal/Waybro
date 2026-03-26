@@ -16,13 +16,16 @@ struct wb_appstate;
 struct module_context {
 	int pipe;
 	int module_count;
+
 	struct module_interface ** interfaces;
 	struct wb_config_setting ** sets;
 	struct wb_poll_handle ** handles;
+
 	void ** states;
 	pthread_mutex_t * mutexes;
 
 	struct wb_context * ctx;
+
 	/*
 	 * semaphore for modules set_up completion wait
 	 */

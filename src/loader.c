@@ -7,7 +7,14 @@
 #include "config.h"
 #include "style.h"
 
+extern const struct wb_config_api config_api;
+extern const struct wb_mod_api mod_api;
+extern const struct wb_widget_api widget_api;
+
 const struct wb_public_api api = {
+		.mod = &mod_api,
+		.widget = &widget_api,
+		.config = &config_api
 };
 
 struct module_interface **
@@ -50,7 +57,10 @@ load_modules(struct wb_config_setting * mods, int * count,
 
 		mod_int = init(mod_found, &api);
 		interfaces[mod_found] = mod_int;
-		printf("Module %s is Loaded\n", mod_int->module_name);
+		printf("Module %s is Loaded | Id = %d\n", mod_int->module_name, mod_found);
+
+		mod_int->id = mod_found;
+		mod_int->api = &api;
 		mod_sets[mod_found] = mod_fnd;
 	}
 

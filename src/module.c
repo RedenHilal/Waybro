@@ -5,10 +5,24 @@
 #include "module.h"
 #include "poll.h"
 
+struct
+wb_poll_handle * wb_mod_reg_sub(struct wb_context * ctx, int fd,
+										int wevent, void * udata, int id);
 
+int
+wb_mod_rmv_sub(struct wb_context * ctx, struct wb_poll_handle * handle);
 
+void
+wb_mod_trigger_update(struct wb_context * ctx);
 
-struct wb_poll_handle * wb_mod_reg_sub(struct wb_context * ctx, int fd,
+const struct wb_mod_api mod_api = {
+	.trigger_update = wb_mod_trigger_update,
+	.reg_sub = wb_mod_reg_sub,
+	.rmv_sub = wb_mod_rmv_sub
+};
+
+struct
+wb_poll_handle * wb_mod_reg_sub(struct wb_context * ctx, int fd,
 										int wevent, void * udata, int id)
 {
 	struct wb_poll_handle * handle;
@@ -25,7 +39,8 @@ struct wb_poll_handle * wb_mod_reg_sub(struct wb_context * ctx, int fd,
 	return handle;
 }
 
-int wb_mod_rmv_sub(struct wb_context * ctx, struct wb_poll_handle * handle)
+int
+wb_mod_rmv_sub(struct wb_context * ctx, struct wb_poll_handle * handle)
 {
 	void * packet = wb_poll_data_from_handle(handle);
 	free(packet);
@@ -33,3 +48,9 @@ int wb_mod_rmv_sub(struct wb_context * ctx, struct wb_poll_handle * handle)
 	return wb_poll_rmv_events(handle);
 }
 
+void
+wb_mod_trigger_update(struct wb_context * ctx)
+{
+	int pload = 1;
+	write(ctx->pipe, &pload, sizeof(int));
+}

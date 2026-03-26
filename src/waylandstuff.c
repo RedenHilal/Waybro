@@ -5,6 +5,7 @@
 #include "macro.h"
 #include "widget.h"
 #include "comm.h"
+#include "bar.h"
 
 struct cb_data {
 	struct wb_appstate * appstate;
@@ -54,7 +55,7 @@ void resize(struct wb_appstate* appstate, struct wb_render * wrender){
     wl_shm_pool_destroy(pool);
     close(fd);
 
-	wb_layout_context_init(wrender);
+	wb_bar_init(wrender);
 }
 
 

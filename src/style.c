@@ -1,29 +1,15 @@
 #include "style.h"
 #include "config.h"
 #include "macro.h"
+#include "module.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
 
-struct config_dispatch {
-	char field_name[32];
-	union {
-		const char * default_str;
-		const char ** default_a_str;
-		const int default_int;
-		const int * default_a_int;
-		const double default_float;
-		const double * default_a_float;
-		void * default_ptr;
-	};
-	int array_size;
-	void ( *custom_parse)(void * start, const struct config_dispatch * dispatch,
-					struct wb_config_setting * mod_set);
-	int offset;
-	int field_type;
-	int field_modifier;
+const struct wb_config_api config_api = {
+	.parse_config = wb_style_parse_config
 };
 
 unsigned int wb_style_type_size[] = {
@@ -188,10 +174,22 @@ log_config_value(void * target, const struct config_dispatch * dispatch)
 				printf("%f\n", *(double *)target);
 				break;
 		case WB_STYLE_STRING:
-				printf("%s\n", (char *)target);
+				printf("%s\n", *(char **)target);
 				break;
 		case WB_STYLE_CUSTOM:
 				break;
+	}
+}
+
+static void
+log_config_array(void ** target, const struct config_dispatch * dispatch)
+{
+	int length = dispatch->array_size;
+	char * ptr = *target;
+
+	for (int i = 0; i < length; i++){
+		log_config_value(ptr, dispatch);
+		ptr += wb_style_type_size[dispatch->field_type];
 	}
 }
 
@@ -227,12 +225,16 @@ wb_style_handle_nonscalar(void * start, const struct config_dispatch * dispatch,
 	target += dispatch->offset;
 
 	int res;
-	void ** arr = (void **)&target;
+	void ** arr = (void **)target;
 	
 	switch (dispatch->field_modifier){
 		case WB_STYLE_ARRAY:
-				res = wb_config_parse_array(mod_set, arr, dispatch->field_type);
-				target = dispatch->default_ptr;
+				elm = wb_config_s_get_setting(mod_set, dispatch->field_name);
+				if (elm == NULL)
+						goto default_arr;
+				res = wb_config_parse_array(elm, start, dispatch->field_type);
+				if (res < 0)
+						goto default_arr;
 				break;
 		case WB_STYLE_LIST:
 				/*
@@ -249,9 +251,11 @@ wb_style_handle_nonscalar(void * start, const struct config_dispatch * dispatch,
 				wb_style_assign_field(target, dispatch, mod_set);
 				break;
 	}
+	return;
 
-	invalid_type:
-	target = dispatch->default_ptr;
+	default_arr:
+	*arr = dispatch->default_ptr;
+	log_config_array(arr, dispatch);
 }
 
 /*

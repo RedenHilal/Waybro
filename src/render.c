@@ -8,10 +8,13 @@
 #include "core.h"
 #include "style.h"
 
-//const struct wb_widget_api wb_widget_api_table[] = {
-//	.draw_rect = wb_widget_rect,
-//	.draw_text = wb_widget_text
-//};
+#include "module.h"
+
+const struct wb_widget_api widget_api = {
+	.rect = wb_widget_rect,
+	.text = wb_widget_text,
+	.rect_special = wb_widget_rect_special
+};
 
 static void
 HandleClayErrors(Clay_ErrorData errorData)
@@ -178,8 +181,7 @@ void wb_widget_rect(struct wb_widget_rect_basic * data)
 }
 
 int
-wb_widget_rect_special_(struct wb_widget_rect_special * data,
-				struct wb_context * ctx)
+wb_widget_rect_special(struct wb_context * ctx, struct wb_widget_rect_special * data)
 {
 	wb_widget_rect(&data->rect);
 	struct wb_widget_listen_node * node  = malloc(sizeof(

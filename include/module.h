@@ -1,12 +1,19 @@
 #ifndef WBRO_MODULE
 #define WBRO_MODULE
 
-
 struct wb_public_api {
+	const struct wb_mod_api * mod;
+	const struct wb_widget_api * widget;
+	const struct wb_config_api * config;
 };
 
-struct wb_widget_rect_data;
+struct wb_poll_handle;
+
+struct wb_widget_rect_basic;
 struct wb_widget_text_data;
+struct wb_widget_rect_special;
+
+struct config_dispatch;
 
 struct wb_render;
 struct wb_context;
@@ -29,7 +36,7 @@ struct wb_event {
 struct module_interface {
 	char module_name[64];
 	/*
-	 * id is assigned by 
+	 * id is assigned by backend
 	 */
 	int id;
 
@@ -39,7 +46,7 @@ struct module_interface {
 	 */
 	void * data;
 
-	struct wb_public_api * api;
+	const struct wb_public_api * api;
 
 	/*
 	 * module are free to define their own struct
@@ -89,32 +96,30 @@ struct module_interface {
  */
 
 struct wb_mod_api {
-	int (* trigger_update)(struct wb_context * ctx);
 
-	struct wb_poll_handle * (* reg_sub)(struct wb_context * ctx, int fd,
-									int wevent, void * udata, int id);
+	void (* trigger_update)(struct wb_context * ctx);
+
+	struct wb_poll_handle * (* reg_sub)(struct wb_context * ctx, int fd, int wevent,
+					void * udata, int id);
 
 	int (* rmv_sub)(struct wb_context * ctx, struct wb_poll_handle * handle);
 
 };
 
 struct wb_widget_api {
-	void (* draw_rect)(struct wb_widget_rect_data * data);
 
-	void (* draw_text)(struct wb_widget_text_data * data);
+	void (* rect)(struct wb_widget_rect_basic * data);
+
+	void (* text)(struct wb_widget_text_data * data);
+
+	int (* rect_special)(struct wb_context * ctx, struct wb_widget_rect_special * data);
+
 };
 
-struct wb_style_api {
-	char * (* get_str)(struct wb_style_sec * sec, const char * key);
+struct wb_config_api {
 
-	int (* get_int)(struct wb_style_sec * sec, const char * key);
-
-	double (* get_float)(struct wb_style_sec * sec, const char * key);
-
-	void (* get_base)(struct wb_style_base * base, struct wb_style_sec * sec,
-					struct wb_style_main * msty);
-
-	char * (* str_by_format)(char * format, char * str_val);
+	void (* parse_config)(struct config_dispatch * dp, int length, void * start,
+					struct wb_config_setting * set);
 
 };
 

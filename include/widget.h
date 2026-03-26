@@ -180,8 +180,8 @@ wb_widget_region_clean(struct wb_context * ctx);
 void
 wb_widget_rect(struct wb_widget_rect_basic * data);
 
-void
-wb_widget_rect_special(struct wb_widget_rect_special * data, struct wb_context * ctx);
+int
+wb_widget_rect_special(struct wb_context * ctx, struct wb_widget_rect_special * data);
 
 void
 wb_widget_text(struct wb_widget_text_data * data);
