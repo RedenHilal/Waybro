@@ -12,12 +12,13 @@
 #include "widget.h"
 #include "bar.h"
 
-#include "clay.h"
 #include "macro.h"
 
 #include <assert.h>
 
 #include <sys/epoll.h>
+#include <cairo/cairo.h>
+#include "clay.h"
 
 #define MAX_EVENTS 64
 
@@ -34,7 +35,7 @@ parse_mod_stys(struct module_interface ** interfaces, int mod_count,
 		if (base == NULL)
 			ON_ERR("allocation failed for style_base")
 
-		parse_layout_hint(layout, mod_sets[i], i);
+		parse_layout_hint(layout, mod_sets[i], interfaces[i]->id);
 		
 		wb_style_get_base(base, mod_sets[i], msty);
         interfaces[i]->parse_sty(mod_sets[i], msty, base);
@@ -87,6 +88,8 @@ int main()
 {
     struct wb_appstate appstate = {0};
 	struct wb_widget_interest_list ilist = {0};
+	struct wb_pointer_state ptr = {0};
+	struct wb_frame_state frame = {0};
     //sigaction(SIGSEGV, &sigact, NULL);
 
 	char * paths[WB_CONFIG_PATHS_NUM];
@@ -103,7 +106,7 @@ int main()
 
 	struct module_interface ** interfaces = load_modules(modules, &mod_count,
 					mod_sets, &appstate);
-	struct wb_layout layout;
+	struct wb_layout layout = wb_layout_get_layout(m_style);
 
     parse_mod_stys(interfaces, mod_count, mod_sets, m_style, &layout);
 
@@ -121,7 +124,10 @@ int main()
 			.appstate = &appstate,
 			.ilist = &ilist,
 			.layout = &layout,
-			.msty = m_style
+			.msty = m_style,
+			.pipe = pipes[1],
+			.ptr = &ptr,
+			.frame = &frame
 	};
 
 	struct module_context mod_ctx = {
@@ -141,7 +147,7 @@ int main()
 	states_init(&mod_ctx);
 
 	widget_init(&wrender);
-    setwayland(&appstate, &wrender);
+    setwayland(&appstate, &wrender, &wb_ctx);
     wl_display_dispatch_pending(appstate.display);
 
 	int wlfd = wl_display_get_fd(appstate.display);
@@ -161,13 +167,15 @@ int main()
 	 * wait for modules set_up to be done
 	 */
 	sem_wait(&sem);
+	wb_bar_render(&mod_ctx);
+	wl_display_dispatch(appstate.display);
+    wl_display_flush(appstate.display);
 	char dump[1024];
+	fsync(pipes[0]);
 
     while (1){
 
-		printf("waiting for display events\n");
         int ready = wb_poll_wait_events(fort, events, MAX_EVENTS, -1);
-		printf("ready %d\n", ready);
 
         for(int i = 0; i < ready; i++){
 
@@ -184,6 +192,7 @@ int main()
 				/*
 				 * render bar
 				 */
+				wb_bar_erase(&wrender);
 				wb_bar_render(&mod_ctx);
 
             }

@@ -4,6 +4,7 @@
 #include "comm.h"
 #include "module.h"
 #include "poll.h"
+#include "widget.h"
 
 struct
 wb_poll_handle * wb_mod_reg_sub(struct wb_context * ctx, int fd,
@@ -15,8 +16,11 @@ wb_mod_rmv_sub(struct wb_context * ctx, struct wb_poll_handle * handle);
 void
 wb_mod_trigger_update(struct wb_context * ctx);
 
+void
+wb_mod_state_change(struct wb_context * ctx);
+
 const struct wb_mod_api mod_api = {
-	.trigger_update = wb_mod_trigger_update,
+	.trigger_update = wb_mod_state_change,
 	.reg_sub = wb_mod_reg_sub,
 	.rmv_sub = wb_mod_rmv_sub
 };
@@ -49,8 +53,8 @@ wb_mod_rmv_sub(struct wb_context * ctx, struct wb_poll_handle * handle)
 }
 
 void
-wb_mod_trigger_update(struct wb_context * ctx)
+wb_mod_state_change(struct wb_context * ctx)
 {
-	int pload = 1;
-	write(ctx->pipe, &pload, sizeof(int));
+	ctx->frame->state_change = 1;
 }
+

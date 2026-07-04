@@ -5,7 +5,7 @@
 #include "style.h"
 #include "config.h"
 #include "macro.h"
-
+#include "string.h"
 
 struct wb_config {
 	config_t cfg;
@@ -55,8 +55,10 @@ wb_config_init(char ** paths)
 		paths++;
 	}
 
-	if (*paths == NULL)
+	if (*paths == NULL){
+		wb_config_err_detail(wcfg);
 		ON_ERR("Failed to get config")
+	}
 
 	return wcfg;
 }
@@ -129,9 +131,21 @@ wb_config_s_name(struct wb_config_setting * set)
 }
 
 int
+wb_config_is_number(struct wb_config_setting * set)
+{
+	return config_setting_is_number(set->setting);
+}
+
+int
 wb_config_is_array(struct wb_config_setting * set)
 {
 	return config_setting_is_array(set->setting);
+}
+
+int
+wb_config_is_list(struct wb_config_setting * set)
+{
+	return config_setting_is_list(set->setting);
 }
 
 int
@@ -203,6 +217,23 @@ wb_config_s_lookup(struct wb_config_setting * set, const char * path,
 	return 0;
 }
 
+static int
+copy_string_from_setting(config_setting_t * set, void * target)
+{
+	const char * out;
+	int res = config_setting_get_string_safe(set, &out);
+
+	if (res == CONFIG_FALSE)
+			return -1;
+
+	char * new = malloc(strlen(out) + 1);
+	snprintf(new, strlen(out) + 1, "%s", out);
+
+	printf("%s\n", new);
+	*(char **) target = new;
+	return 0;
+}
+
 int
 wb_config_elem_by_index(struct wb_config_setting * set, void * start, int type, int index)
 {
@@ -226,6 +257,7 @@ wb_config_elem_by_index(struct wb_config_setting * set, void * start, int type, 
 				res = config_setting_get_float_safe(elm, start);
 				break;
 		case WB_STYLE_STRING:
+				// return copy_string_from_setting(elm, start);
 				res = config_setting_get_string_safe(elm, start);
 				break;
 	}
@@ -248,17 +280,25 @@ wb_config_parse_array(struct wb_config_setting * set, void ** data, int type)
 	if (length <= 0)
 			return length;
 
-	void * arr = malloc(wb_style_type_size[type] * length);
+	/*
+	 * additional space to assign NULL terminator
+	 */
+	void * arr = malloc(wb_style_type_size[type] * (length + 1));
+	char * ptr = (char *) arr;
 
 	if (arr == NULL)
 			return -1;
 
 	for (int i = 0; i < length; i++){
-		res = wb_config_elem_by_index(set, &arr[i], type, i);
+		res = wb_config_elem_by_index(set, ptr, type, i);
+		ptr += wb_style_type_size[type];
 		if (res < 0)
 				goto clean_fail;
 	}
 
+	char ** arrays = (char **)arr;
+
+	printf("data retrieved succesfully %s\n", arrays[0]);
 	*data = arr;
 	return length;
 

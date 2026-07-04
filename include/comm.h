@@ -13,6 +13,28 @@ struct wb_layout;
 struct wb_widget_interest_list;
 struct wb_appstate;
 
+struct wb_pointer_state {
+	struct {
+		double x, y;
+	} pos;
+
+	/*
+	 * flag wheter hit test should be done on next frame
+	 */
+	int check;
+
+	/*
+	 * widget_id which the last press hit
+	 * it shall have < 0 value if no widget was hit
+	 */
+	int po_id;
+};
+
+struct wb_frame_state {
+	int update;
+	int state_change;
+};
+
 struct module_context {
 	int pipe;
 	int module_count;
@@ -37,6 +59,9 @@ struct module_context {
  * split struct to each thread if possible
  */
 struct wb_context {
+
+	struct wb_pointer_state * ptr;
+
 	/*
 	 * both thread
 	 */
@@ -55,6 +80,7 @@ struct wb_context {
 	struct wb_appstate * appstate;
 	struct wb_widget_interest_list * ilist;
 	struct wb_layout * layout;
+	struct wb_frame_state * frame;
 };
 
 struct wb_interest {

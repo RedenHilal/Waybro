@@ -14,7 +14,7 @@ cmp_index(void * node1, void * node2)
 }
 
 struct wb_layout
-get_layout(struct wb_style_main * msty)
+wb_layout_get_layout(struct wb_style_main * msty)
 {
 	struct wb_layout layout = {
 		.lhead = NULL,
@@ -39,9 +39,10 @@ parse_group(struct wb_config_setting * set)
 	else if (strncmp(val, "center", strlen("center")) == 0)
 		group = WB_STYLE_GROUP_CENTER;
 	else if (strncmp(val, "right", strlen("right")) == 0)
-		group = WB_STYLE_GROUP_CENTER;
+		group = WB_STYLE_GROUP_RIGHT;
 	else
 		group = WB_STYLE_GROUP_LEFT;
+
 
 	return group;
 }

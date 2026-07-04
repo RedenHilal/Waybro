@@ -12,6 +12,7 @@ struct wb_poll_handle;
 struct wb_widget_rect_basic;
 struct wb_widget_text_data;
 struct wb_widget_rect_special;
+struct wb_widget_callback;
 
 struct config_dispatch;
 
@@ -84,13 +85,6 @@ struct module_interface {
 	void (* clean_up)();
 };
 
-
-/*
- * module entry point
- * struct module_interface * mod_init(int id, struct wb_public_api * api);
- */
-
-
 /*
  * public api
  */
@@ -110,9 +104,27 @@ struct wb_widget_api {
 
 	void (* rect)(struct wb_widget_rect_basic * data);
 
-	void (* text)(struct wb_widget_text_data * data);
+	void (* text)(struct wb_context * ctx, struct wb_widget_text_data * data);
 
 	int (* rect_special)(struct wb_context * ctx, struct wb_widget_rect_special * data);
+
+	int (* allocate_id)(struct wb_context * ctx);
+
+	int (* get_event)(struct wb_context * ctx, int id);
+
+	int (* free_id)(struct wb_context * ctx, int id);
+
+	int (* set_id)(struct wb_context * ctx, int id, void * data, int events,
+					const struct wb_widget_callback * cb);
+
+	int (* bind_id)(struct wb_context * ctx, int id,
+					struct wb_widget_rect_special * rect);
+
+	struct wb_widget_rect_basic (* default_rect)(struct wb_context * ctx, int events);
+
+	struct wb_widget_text_data (* default_text)(struct wb_context * ctx);
+
+	int (* toggle_active)(struct wb_context * ctx, int id, int active);
 
 };
 

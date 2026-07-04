@@ -1,3 +1,5 @@
+#include <linux/input-event-codes.h>
+
 #include "displayer.h"
 #include "style.h"
 #include "core.h"
@@ -10,6 +12,7 @@
 struct cb_data {
 	struct wb_appstate * appstate;
 	struct wb_render * wrender;
+	struct wb_context * ctx;
 };
 
 int alc_shm(uint64_t size){
@@ -44,8 +47,10 @@ void resize(struct wb_appstate* appstate, struct wb_render * wrender){
     int fd = alc_shm(size);
 
     appstate->buffptr = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
     wrender->cai_srfc = cairo_image_surface_create_for_data(appstate->buffptr, 
 					CAIRO_FORMAT_ARGB32, main_sty->width, main_sty->height, stride);
+
     wrender->cai_context = cairo_create(wrender->cai_srfc);
 
     struct wl_shm_pool * pool = wl_shm_create_pool(appstate->shm, fd, size);
@@ -137,38 +142,153 @@ static const struct wl_output_listener wl_output_listener = {
     .name=wl_output_name
 };
 
+static void wl_callback_notify_frame(void * data, struct wl_callback * callback,
+				uint32_t callback_data);
+
+static const struct wl_callback_listener wl_cb_listen_frame = {
+	.done = wl_callback_notify_frame
+};
+
+static void wl_callback_notify_frame(void * data, struct wl_callback * callback,
+				uint32_t callback_data)
+{
+	struct wb_context * ctx = data;
+	wl_callback_destroy(callback);
+
+	struct wl_callback * next_callback = wl_surface_frame(ctx->appstate->surface);
+	wl_callback_add_listener(next_callback, &wl_cb_listen_frame, ctx);
+
+	if (ctx->frame->update || ctx->frame->state_change) {
+		ctx->frame->update = 0;
+		ctx->frame->state_change = 0;
+		wb_bar_trigger_update(ctx);
+
+		wl_surface_commit(ctx->appstate->surface);
+	}
+	else {
+		wl_surface_commit(ctx->appstate->surface);
+	}
+
+}
+
 static void
 wl_pointer_enter(void * data, struct wl_pointer * pointer, uint32_t serial,
 				struct wl_surface * surface, wl_fixed_t x, wl_fixed_t y)
 {
-	printf("enter = x: %d, y: %d\n", x, y);
+	struct cb_data * cb_data = data;
+	struct wb_context * ctx = cb_data->ctx;
+	struct wb_pointer_state * ptr = ctx->ptr;
+
+	double dx = wl_fixed_to_double(x);
+	double dy = wl_fixed_to_double(y);
+
+	ptr->pos.x = dx;
+	ptr->pos.y = dy;
+
 }
 
 static void
 wl_pointer_leave(void * data, struct wl_pointer * pointer, uint32_t serial,
 				struct wl_surface * surface)
 {
-	printf("leave\n");
+	struct cb_data * cb_data = data;
+	struct wb_context * ctx = cb_data->ctx;
+	struct wb_pointer_state * ptr = ctx->ptr;
+
+	ptr->pos.x = -1;
+	ptr->pos.y = -1;
+	ptr->check = 1;
+
+	LOG_INFO("leave\n");
 }
 
+/*
+ * TODO
+ * state_change field of wb_context are used in 2 different thread
+ * hence it shall have lock implementation for thread
+ * safety, maybe another solution if there is one
+ */
 static void
 wl_pointer_frame(void * data, struct wl_pointer * pointer)
 {
+	struct cb_data * cb_data = data;
+	struct wb_context * ctx = cb_data->ctx;
+	struct wb_pointer_state * ptr = ctx->ptr;
+	struct wb_widget_interest_list * ilist = ctx->ilist;
+	struct wb_frame_state * frame = ctx->frame;
 
-	printf("frame\n");
+	if (ctx->frame->update) {
+		return;
+	}
+
+	if (ptr->check) {
+		ptr->check = 0;
+		int count = wb_widget_hit_multiple_widget(ctx,
+						ptr->pos.x, ptr->pos.y, WB_POINTER_HOVER);
+
+		if (count) {
+			frame->update = 1;
+		}
+	}
+	
+
 }
 
 static void
 wl_pointer_motion(void * data, struct wl_pointer * pointer, uint32_t time,
 				wl_fixed_t x, wl_fixed_t y)
 {
-	printf("enter = x: %d, y: %d\n", x, y);
+	struct cb_data * cb_data = data;
+	struct wb_context * ctx = cb_data->ctx;
+	struct wb_pointer_state * ptr = ctx->ptr;
+
+	double dx = wl_fixed_to_double(x);
+	double dy = wl_fixed_to_double(y);
+
+	ptr->pos.x = dx;
+	ptr->pos.y = dy;
+	ptr->check = 1;
+
+	//LOG_INFO("wl_pointer_motion - x = %f, y = %f\n", dx, dy);
 }
 
 static void
 wl_pointer_button(void * data, struct wl_pointer * pointer, uint32_t serial,
 				uint32_t time, uint32_t button, uint32_t state)
 {
+	struct cb_data * cb_data = data;
+	struct wb_context * ctx = cb_data->ctx;
+	struct wb_pointer_state * ptr = ctx->ptr;
+
+	struct wb_widget_listen_node * node = NULL;
+
+	int widget_id;
+
+	if (button != BTN_LEFT) {
+		return;
+	}
+
+	widget_id = wb_widget_hit_single_widget(ctx,
+					ptr->pos.x, ptr->pos.y, WB_POINTER_BUTTON);
+
+	if (state == 1) {
+		ptr->po_id = widget_id;
+	}
+	else if (state == 0){
+		if (ptr->po_id < 0) {
+			return;
+		}
+
+		if (widget_id == ptr->po_id) {
+			node = ctx->ilist->node[widget_id];
+			node->events ^= WB_POINTER_BUTTON;
+			if (node->on_click) {
+				node->on_click(ctx, node->data);
+			}
+			ptr->check = 1;
+		}
+
+	}
 
 }
 
@@ -176,7 +296,7 @@ static void
 wl_pointer_axis(void * data, struct wl_pointer * pointer, uint32_t time,
 				uint32_t axis, wl_fixed_t value)
 {
-
+	
 }
 
 static void
@@ -198,6 +318,20 @@ wl_pointer_axis_discrete(void * data, struct wl_pointer * pointer, uint32_t axis
 
 }
 
+static void
+wl_pointer_axis_value120(void * data, struct wl_pointer * pointer, uint32_t axis,
+				int value120)
+{
+
+}
+
+static void
+wl_pointer_axis_relative_direction(void * data, struct wl_pointer * pointer,
+				uint32_t axis, uint32_t direction)
+{
+
+}
+
 static const struct wl_pointer_listener wl_pointer_listener = {
 	.enter = wl_pointer_enter,
 	.leave = wl_pointer_leave,
@@ -207,20 +341,23 @@ static const struct wl_pointer_listener wl_pointer_listener = {
 	.axis = wl_pointer_axis,
 	.axis_source = wl_pointer_axis_source,
 	.axis_stop = wl_pointer_axis_stop,
-	.axis_discrete = wl_pointer_axis_discrete
+	.axis_discrete = wl_pointer_axis_discrete,
+	.axis_value120 = wl_pointer_axis_value120,
+	.axis_relative_direction = wl_pointer_axis_relative_direction
 };
 
 static void
 wl_seat_capabilitites(void * data, struct wl_seat * seat, uint32_t capability)
 {
-	struct wb_appstate * appstate = data;
+	struct cb_data * cb_data = data;
+	struct wb_appstate * appstate = cb_data->appstate;
 
 	int has_pointer = capability & WL_SEAT_CAPABILITY_POINTER;
 
 	if (appstate->pointer == NULL && has_pointer){
 		printf("bind pointer\n");
 		appstate->pointer = wl_seat_get_pointer(appstate->seat);
-		wl_pointer_add_listener(appstate->pointer, &wl_pointer_listener, appstate);
+		wl_pointer_add_listener(appstate->pointer, &wl_pointer_listener, cb_data);
 	}
 	else if (appstate->pointer && !has_pointer){
 		printf("free pointer\n");
@@ -242,7 +379,8 @@ static const struct wl_seat_listener wl_seat_listener = {
 
 static void wl_registry_global(void * data, struct wl_registry* registry,uint32_t name, const char* interface, uint32_t version){
     //printf("interface: '%s', version: %d, name: %d\n", interface, version, name);
-    struct wb_appstate *appstate = data; 
+	struct cb_data * cb_data = data;
+    struct wb_appstate *appstate = cb_data->appstate; 
 
     if (!strcmp(interface, wl_compositor_interface.name)){
         appstate->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 4);
@@ -263,7 +401,7 @@ static void wl_registry_global(void * data, struct wl_registry* registry,uint32_
     }
 	else if (!strcmp(interface, wl_seat_interface.name)){
 		appstate->seat = wl_registry_bind(registry, name, &wl_seat_interface, version);
-		wl_seat_add_listener(appstate->seat, &wl_seat_listener, appstate);
+		wl_seat_add_listener(appstate->seat, &wl_seat_listener, cb_data);
 	}
 }
 
@@ -271,11 +409,14 @@ static void wl_registry_global_remove(void* data, struct wl_registry* registry, 
 
 }
 
-int setwayland(struct wb_appstate * appstate, struct wb_render * wrender){
+int setwayland(struct wb_appstate * appstate, struct wb_render * wrender,
+				struct wb_context * ctx)
+{
 
 	struct cb_data * cb_data = malloc(sizeof(struct cb_data));
 	cb_data->appstate = appstate;
 	cb_data->wrender = wrender;
+	cb_data->ctx = ctx;
 
     const struct wl_registry_listener listener = {
 			.global = wl_registry_global,
@@ -286,11 +427,10 @@ int setwayland(struct wb_appstate * appstate, struct wb_render * wrender){
     appstate->display = wl_display_connect(NULL);
     appstate->registry = wl_display_get_registry(appstate->display);
     
-    wl_registry_add_listener(appstate->registry, &listener, appstate);
+    wl_registry_add_listener(appstate->registry, &listener, cb_data);
     wl_display_roundtrip(appstate->display);
     
     appstate->surface = wl_compositor_create_surface(appstate->compositor);
-	appstate->region = wl_compositor_create_region(appstate->compositor);
 
     struct zwlr_layer_surface_v1 * zwlr_surface = zwlr_layer_shell_v1_get_layer_surface(
 					appstate->zwlr_sh, appstate->surface, appstate->output,
@@ -304,8 +444,19 @@ int setwayland(struct wb_appstate * appstate, struct wb_render * wrender){
     zwlr_layer_surface_v1_set_exclusive_zone(zwlr_surface, main_sty->height);
     zwlr_layer_surface_v1_add_listener(zwlr_surface, &zwlr_surface_listener, cb_data);
 
+	struct wl_region * region = 
+			wl_compositor_create_region(ctx->appstate->compositor);
+
+	wl_region_add(region, 0, 0, main_sty->width, main_sty->height);
+	wl_surface_set_input_region(appstate->surface, region);
+	wl_region_destroy(region);
     wl_surface_commit(appstate->surface);
+
+	struct wl_callback * callback = wl_surface_frame(ctx->appstate->surface);
+	wl_callback_add_listener(callback, &wl_cb_listen_frame, ctx);
+
     wl_display_roundtrip(appstate->display);
+
   
     return 0;
 }

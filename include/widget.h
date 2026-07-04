@@ -7,15 +7,16 @@
 #define INT_TO_CLAY(rgba) GET_RED(rgba), GET_GREEN(rgba), GET_BLUE(rgba), GET_ALPHA(rgba)
 #define WB_CLAY_RADIUS_ALL(radius) radius, radius, radius, radius
 
-#define WB_WIDGET_INTEREST_SIZE 128
+#define WB_WIDGET_INTEREST_SIZE 1024
+#define WB_WIDGET_FREE_SLOT_SIZE 256
+
+#define WB_WIDGET_INT_BITS sizeof(int) * 8
+#define WB_WIDGET_FRAME_SLOT_SIZE \
+		(WB_WIDGET_INTEREST_SIZE / WB_WIDGET_INT_BITS) + 1
 
 struct wb_context;
 struct wb_render;
 
-enum wb_widget_fnc_type {
-	WB_WIDGET_RECT,
-	WB_WIDGET_TEXT
-};
 
 enum wb_widget_sizing_type {
 	WB_WIDGET_GROW,
@@ -55,6 +56,11 @@ enum wb_widget_layout_alignment {
 	WB_WIDGET_CENTER
 };
 
+struct wb_widget_callback {
+	void (* on_click)(struct wb_context * ctx, void * data);
+	void (* on_scroll)(struct wb_context * ctx, void * data);
+};
+
 struct wb_widget_color {
 	float r;
 	float g;
@@ -69,60 +75,95 @@ struct wb_widget_padding {
 	u16 bottom;
 };
 
+struct wb_widget_border_width {
+	u16 left;
+	u16 right;
+	u16 top;
+	u16 bottom;
+};
+
 union wb_widget_sizing_unit {
 	//Percent sizing
 	float percent;
 	//Fixed sizing
-	int size;
+	float size;
 	//Grow and Fit sizing
 	struct {
-		int min;
-		int max;
+		float min;
+		float max;
 	};
 };
 
 enum wb_widget_special_event {
-	WB_POINTER_ENTER			= 1 << 0,
-	WB_POINTER_LEAVE			= 1 << 1,
-	WB_POINTER_MOTION			= 1 << 2,
-	WB_POINTER_BUTTON			= 1 << 3,
-	WB_POINTER_AXIS				= 1 << 4,
-	WB_POINTER_AXIS_SOURCE		= 1 << 5,
-	WB_POINTER_AXIS_STOP		= 1 << 6,
-	WB_POINTER_AXIS_DISCRETE	= 1 << 7
+	WB_POINTER_HOVER			= 1 << 0,
+	WB_POINTER_MOTION			= 1 << 1,
+	WB_POINTER_BUTTON			= 1 << 2,
+	WB_POINTER_AXIS				= 1 << 3,
+	WB_POINTER_AXIS_SOURCE		= 1 << 4,
+	WB_POINTER_AXIS_STOP		= 1 << 5,
+	WB_POINTER_AXIS_DISCRETE	= 1 << 6,
+
+	WB_WIDGET_INVALID			= 1 << 31
 };
 
 struct wb_widget_listen_node {
-	char id[64];
 	void * data;
 
-	void (* on_enter)(void * data);
-	void (* on_leave)(void * data);
-	void (* on_click)(void * data);
-	void (* on_scroll)(void * data);
+	int id;
+	int event_mask;
+
+	double right, left, top, bottom;
+
+	void (* on_click)(struct wb_context * ctx, void * data);
+	void (* on_scroll)(struct wb_context * ctx, void * data);
 
 	/* 
-	 * event mask
+	 * event state as mask
 	 */
 	int events;
 };
 
 struct wb_widget_interest_list {
-	struct wb_widget_listen_node node[WB_WIDGET_INTEREST_SIZE];
+	struct wb_widget_listen_node * node[WB_WIDGET_INTEREST_SIZE];
 	int ncount;
+
+	/*
+	 * free slot to reuse
+	 */
+	int fs[WB_WIDGET_FREE_SLOT_SIZE];
+	int fs_index;
+	int fs_count;
+
+	/*
+	 * bit array for slot lock on each frame
+	 */
+	int frame_slot[WB_WIDGET_FRAME_SLOT_SIZE];
+
+	/*
+	 * widget stack, updated on each frame
+	 */
+	int wf_index[WB_WIDGET_FREE_SLOT_SIZE];
+	int wf_count;
+
+	int state_change;
 };
 
 struct wb_widget_rect_basic {
+	int radius;
+	int child_gap;
+
+	struct wb_widget_border_width border_width;
+
 	struct wb_widget_color fill_color;
 	struct wb_widget_color border_color;
 	struct wb_widget_padding padding;
-	int border_width;
-	int radius;
-	int child_gap;
+
 	enum wb_widget_sizing_type sizing_width;
 	enum wb_widget_sizing_type sizing_height;
+
 	union wb_widget_sizing_unit width;
 	union wb_widget_sizing_unit height;
+
 	enum wb_widget_layout_alignment layout_x;
 	enum wb_widget_layout_alignment layout_y;
 	enum wb_widget_layout_direction direction;
@@ -134,16 +175,16 @@ struct wb_widget_rect_basic {
 struct wb_widget_rect_special {
 	struct wb_widget_rect_basic rect;
 
-	struct wb_widget_listen_node event;
+	struct wb_widget_listen_node * event;
 };
 
 /*
  * unicode support with pango backend
  */
 struct wb_widget_text_data {
+	int font_size;
 	char * string;
 	enum wb_widget_font font;
-	int font_size;
 	enum wb_widget_text_wrap wrap;
 	enum wb_widget_text_alignment alignment;
 	struct wb_widget_color text_color;
@@ -166,10 +207,10 @@ void
 wb_layout_context_init(struct wb_render * wrender);
 
 void
-wb_layout_font_init(char * fonts[]);
+wb_layout_font_init(char * fonts[], int length);
 
 void
-wb_layout_begin();
+wb_layout_begin(struct wb_context * ctx);
 
 void
 wb_layout_compute(struct wb_context * ctx);
@@ -178,12 +219,52 @@ void
 wb_widget_region_clean(struct wb_context * ctx);
 
 void
+wb_widget_listen_clean(struct wb_context * ctx);
+
+void
 wb_widget_rect(struct wb_widget_rect_basic * data);
+
+int
+wb_widget_rect_with_id(struct wb_widget_rect_basic * data, char * id, int index);
 
 int
 wb_widget_rect_special(struct wb_context * ctx, struct wb_widget_rect_special * data);
 
 void
-wb_widget_text(struct wb_widget_text_data * data);
+wb_widget_text(struct wb_context * ctx, struct wb_widget_text_data * data);
+
+void
+wb_widget_print_widget(char * id, int index);
+
+int
+wb_widget_allocate_id(struct wb_context * ctx);
+
+int
+wb_widget_free_id(struct wb_context * ctx, int id);
+
+int
+wb_widget_get_widget_event(struct wb_context * ctx, int id);
+
+int
+wb_widget_hit_single_widget(struct wb_context * ctx, double x, double y, int event);
+
+int
+wb_widget_hit_multiple_widget(struct wb_context * ctx, double x, double y, int event);
+
+int
+wb_widget_set_id(struct wb_context * ctx, int id, void * data, int events,
+				const struct wb_widget_callback * cb);
+
+int
+wb_widget_bind_id(struct wb_context * ctx, int id, struct wb_widget_rect_special * rect);
+
+struct wb_widget_rect_basic
+wb_widget_get_default_rect(struct wb_context * ctx, int events);
+
+struct wb_widget_text_data
+wb_widget_get_default_text(struct wb_context * ctx);
+
+int
+wb_widget_toggle_active(struct wb_context * ctx, int id, int active);
 
 #endif

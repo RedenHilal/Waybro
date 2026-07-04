@@ -17,7 +17,7 @@ struct wb_layout {
 };
 
 struct wb_layout
-get_layout(struct wb_style_main * msty);
+wb_layout_get_layout(struct wb_style_main * msty);
 
 void
 parse_layout_hint(struct wb_layout * layout,

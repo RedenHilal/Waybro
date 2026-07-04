@@ -4,23 +4,30 @@
 #include <unistd.h>
 #include <assert.h>
 #include <stdint.h>
+#include <time.h>
 
 #include "module.h"
 #include "macro.h"
+#include "widget.h"
 
-void clock_parse_sty(struct wb_style_sec * sec, struct wb_style_main * msty); 
+#define TEXT_MAX 64
+
+void clock_parse_sty(struct wb_config_setting * set, struct wb_style_main * msty, 
+				struct wb_style_base * base); 
 int get_time_fd(struct wb_context * ctx);
-void time_fd_init(struct wb_context * ctx);
-void time_get(struct wb_event * event, struct wb_context * ctx);
-void clock_render(struct wb_render * wrender, struct wb_data * data);
+void * time_fd_init(struct wb_context * ctx);
+void time_get(struct wb_event * event, struct wb_context * ctx, void * state);
+void clock_render(struct wb_context * ctx, void * state);
 
-struct clock_style {
-	struct wb_style_base base;
-	char format[WB_STYLE_STR_SIZE_MAX];
+struct clock_data {
+	struct wb_context * ctx;
+	struct clock_state * state;
 };
 
 struct clock_state {
-	uint64_t utime;
+	char text[64];
+	int mode;
+	struct tm time;
 };
 
 static struct module_interface mod = {
@@ -29,67 +36,99 @@ static struct module_interface mod = {
 	.get_fd			= get_time_fd,
 	.set_up			= time_fd_init,
 	.handle_event	= time_get,
-	.handle_update	= clock_render,
+	.emit_layout	= clock_render,
 	.clean_up		= NULL
 };
 
 struct module_interface * mod_init(int id, struct wb_public_api * api){
-	mod.id = id;
-	mod.api = api;
-	mod.data = malloc(sizeof(struct clock_state));
-
-	_Static_assert(sizeof(struct clock_state) <= 
-					sizeof(((struct wb_data *)0)->str_val));
-
 	return &mod;
 }
 
-void clock_render(struct wb_render * wrender, struct wb_data * data){
-	struct wb_public_api * api = mod.api;
-	struct clock_state state;
-	memcpy(&state, data->str_val, sizeof(struct clock_state));
+static void
+draw_text(void * udata)
+{
+	struct clock_data * data = udata;
+	struct clock_state * state = data->state;
+	const struct wb_public_api * api = mod.api;
 
-	int hour = state.utime / 60;
-	int minute = state.utime % 60;
+	char * fmt = state->mode? "%a | %m %B" : "%H:%M";
+	strftime(state->text, TEXT_MAX, fmt, &state->time);
+	LOG_INFO("%s\n", state->text);
 
-	printf("Event Triggered Clock | Clock %0.2d:%0.2d\n", hour, minute);
+	struct wb_widget_text_data text = {
+		.string = state->text,
+		.font_size = 12,
+		.text_color = {255, 255, 255, 255}
+	};
+	api->widget->text(data->ctx, &text);
 }
 
-void clock_parse_sty(struct wb_style_sec * sec, struct wb_style_main * msty){
-	struct wb_public_api * api = mod.api;
+void handle_click(struct wb_context * ctx, void * data)
+{
+	const struct wb_public_api * api = mod.api;
+	struct clock_state * state = data;
+	state->mode = !state->mode;
 
-	struct clock_style * sty = calloc(1, sizeof(struct clock_style));	
-	char * format = api->style->get_str(sec, "format");
-	strncpy(sty->format, format, sizeof(sty->format));
-	mod.style = sty;
-
-	api->style->get_base(&sty->base, sec, msty);
+	api->mod->trigger_update(ctx);
 }
 
-void time_get(struct wb_event * event, struct wb_context * ctx){
-	struct wb_public_api * api = mod.api;
-	struct clock_state * state = mod.data;
+static const struct wb_widget_callback clock_cb = {
+	.on_click = handle_click
+};
+
+void clock_render(struct wb_context * ctx, void * data){
+	const struct wb_public_api * api = mod.api;
+	struct clock_state * state = data;
+	static int id = -1;
+
+	struct clock_data cb_data = {ctx, state};
+	int event = api->widget->get_event(ctx, id);
+
+	if (id < 0) {
+		id = api->widget->allocate_id(ctx);
+		api->widget->set_id(ctx, id, state, WB_POINTER_BUTTON | WB_POINTER_HOVER,
+						&clock_cb);
+		LOG_INFO("id = %d\n", id);
+	}
+	
+	struct wb_widget_rect_special rect = {
+		.rect = api->widget->default_rect(ctx, event)
+	};
+
+	rect.rect.child_cb = draw_text;
+	rect.rect.data = &cb_data;
+
+	api->widget->bind_id(ctx, id, &rect);
+	api->widget->rect_special(ctx, &rect);
+
+}
+
+void clock_parse_sty(struct wb_config_setting * set, struct wb_style_main * msty,
+				struct wb_style_base * base){
+		printf("clock parse\n");
+}
+
+void time_get(struct wb_event * event, struct wb_context * ctx, void * data){
+	const struct wb_public_api * api = mod.api;
+	struct clock_state * state = data;
     uint64_t trigger;
 
     read(event->fd, &trigger, sizeof(uint64_t));
 
-    state->utime += trigger;
-	state->utime %= (60 * 24);
+	state->time.tm_min += trigger;
+	mktime(&state->time);
 
-	struct wb_data data;
-	data.id = mod.id;
-
-	memcpy(data.str_val, state, sizeof(struct clock_state));
-	api->mod->send_data(ctx, &data);
+	api->mod->trigger_update(ctx);
 }
 
 int get_time_fd(struct wb_context * ctx){
-	struct clock_state * state = mod.data;
+	struct clock_state * state = malloc(sizeof(struct clock_state));
+	mod.data = state;
     int timefd = timerfd_create(CLOCK_REALTIME, 0);
 
     struct itimerspec timer;
     time_t date_now = time(NULL);
-    struct tm * tmstat = localtime(&date_now);
+    struct tm * tmstat = localtime_r(&date_now, &state->time);
     
     timer.it_value.tv_sec = date_now + (60 - tmstat->tm_sec);
     timer.it_value.tv_nsec = 0;
@@ -97,19 +136,11 @@ int get_time_fd(struct wb_context * ctx){
     timer.it_interval.tv_nsec = 0;
 
     timerfd_settime(timefd, TFD_TIMER_ABSTIME, &timer, NULL);
-    int minutes = tmstat->tm_min + tmstat->tm_hour * 60;
-	state->utime = minutes;
 
     return timefd;
 }
 
-void time_fd_init(struct wb_context * ctx){
+void * time_fd_init(struct wb_context * ctx){
 	struct clock_state * state = mod.data;
-	struct wb_public_api * api = mod.api;
-	struct wb_data data;
-	data.id = mod.id;
-
-	memcpy(data.str_val, state, sizeof(struct clock_state));
-
-	api->mod->send_data(ctx, &data);
+	return state;
 }

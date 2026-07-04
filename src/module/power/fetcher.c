@@ -4,29 +4,31 @@
 
 #include "module.h"
 #include "macro.h"
+#include "widget.h"
 
 #define CHARGE_PATH "/sys/class/power_supply/AC0/online"
 #define POWER_PATH "/sys/class/power_supply/BAT0/capacity"
 
-void get_power_sty(struct wb_style_sec * sec, struct wb_style_main * main_sty);
+void get_power_sty(struct wb_config_setting * set, struct wb_style_main * main_sty,
+				struct wb_style_base * base);
 int get_power_fd(struct wb_context * ctx);
-void power_set(struct wb_context * ctx);
-void power_handle(struct wb_event * event, struct wb_context * ctx);
-void handle_power(struct wb_render * render, struct wb_data * data);
+void * power_set(struct wb_context * ctx);
+void power_handle(struct wb_event * event, struct wb_context * ctx, void * state);
+void handle_power(struct wb_context * ctx, void * state);
+
+struct power_data {
+	struct wb_context * ctx;
+	void * state;
+};
 
 struct power_style {
-	struct wb_style_base base;
-	char format[WB_STYLE_STR_SIZE_MAX];
+	char * format;
 };
 
 struct power_info {
 	int power_level;
 	int charge_status;
-};
-
-struct power_info power_state;
-struct wb_data power_data = {
-	.data = &power_state
+	char text[64];
 };
 
 sd_bus * gbus = NULL;
@@ -37,65 +39,80 @@ struct module_interface mod = {
 	.get_fd			= get_power_fd,
 	.set_up			= power_set,
 	.handle_event	= power_handle,
-	.handle_update	= handle_power,
+	.emit_layout	= handle_power,
 	.clean_up		= NULL
 };
 
-struct module_interface * mod_init(int id, struct wb_public_api * api){
-	mod.id = id;
-	power_data.id = id;
-	mod.data = api;
+struct module_interface * mod_init(){
 	return &mod;
 }
 
-void handle_power(struct wb_render * wrender, struct wb_data * data){
-
-	struct wb_public_api * api = mod.data;
-
-	struct power_info * state = data->data;
-    struct power_style * style = mod.style;
-    struct wb_style_base * base = &style->base;
-	char power[6];
-
-	printf("Event Triggered power | Power Status: %d\n", state->power_level); 
-	printf("Event Triggered power | Charge Status: %d\n", state->charge_status);  
-    
-    snprintf(power, 5, "%d%%", state->power_level);
-
-    int rect_x = base->x + base->rd_left;
-    int total_width = base->width + base->rd_right + base->rd_left;
-    char * text = api->style->str_by_format(style->format, power);
-
-    api->render->erase_area(wrender, base->x , base->y, total_width, base->height);
-    api->render->draw_rect(wrender, base->x, base->y, base->width, base->height);
-
-    api->render->draw_text(wrender, base->x, base->y, text);
-    free(text);
-
-    api->render->expose_area(wrender, base->x, base->y, total_width, base->height);
+void
+get_power_sty(struct wb_config_setting * set, struct wb_style_main * msty,
+				struct wb_style_base * base)
+{
+	
 }
 
-void get_power_sty(struct wb_style_sec * sec, struct wb_style_main * main_sty){
+static void
+draw_text(void * udata)
+{
+	struct power_data * data = udata;
+	struct power_info * state = data->state;
+	struct wb_public_api * api = mod.api;
 
-	struct wb_public_api * api = mod.data;
+	snprintf(state->text, 64, "%d", state->power_level);
+	struct wb_widget_text_data text = {
+		.string = state->text,
+		.text_color = {255, 255, 255, 255},
+		.font_size = 12
+	};
 
-    struct power_style * pow_sty = calloc(1, sizeof(struct power_style));
-
-    api->style->get_base(&pow_sty->base, sec, main_sty);
-    char * format = api->style->get_str(sec, "format");
-
-    strncpy(pow_sty->format, format, WB_STYLE_STR_SIZE_MAX);
-	mod.style = pow_sty;
+	api->widget->text(data->ctx, &text);
 }
 
-void power_handle(struct wb_event * event, struct wb_context * ctx){
+static void
+draw_power(void * state)
+{
+	struct power_data * data = state;
+	const struct wb_public_api * api = mod.api;
+	struct wb_widget_rect_special rect = {
+		.rect = {
+			.fill_color = {255,255,255,0},
+			.child_cb = draw_text,
+			.data = state,
+			.sizing_width = WB_WIDGET_FIT,
+			.sizing_height = WB_WIDGET_GROW,
+			.layout_y = WB_WIDGET_CENTER
+		},
+		.event = {
+			.data = state,
+			.events = WB_POINTER_ENTER | WB_POINTER_LEAVE
+		}
+	};
+
+	api->widget->rect_special(data->ctx, &rect);
+
+}
+
+void handle_power(struct wb_context * ctx, void * state){
+	struct power_data * data = state;
+	struct power_info * pstate = data->state;
+	const struct wb_public_api * api = mod.api;
+
+	draw_power(state);
+}
+
+void power_handle(struct wb_event * event, struct wb_context * ctx, void * state){
 	static sd_bus * bus = NULL;
+	const struct wb_public_api * api = mod.api;
 
 	if(bus == NULL){
 		sd_bus_default_system(&bus);
 	}
 
 	while(sd_bus_process(bus, NULL) > 0);
+	api->mod->trigger_update(ctx);
 }
 
 void set_nonblock(int fd){
@@ -109,8 +126,10 @@ void set_nonblock(int fd){
     return;
 }
 
-int power_get(sd_bus_message * m, void * data, sd_bus_error * ret_error){
-	struct wb_public_api * api = mod.data;
+int power_get(sd_bus_message * m, void * udata, sd_bus_error * ret_error){
+	const struct wb_public_api * api = mod.data;
+	struct power_data * data = udata;
+	struct power_info * state = data->state;
     
 	static int file_fd = 0;
 
@@ -118,23 +137,24 @@ int power_get(sd_bus_message * m, void * data, sd_bus_error * ret_error){
 		file_fd = open(POWER_PATH, 0);
 	}
 
-    char buffer[4];
+    char buffer[16];
     
     int bytereads = read(file_fd, buffer, sizeof(buffer));
     lseek(file_fd, SEEK_SET, 0);
     buffer[bytereads] = 0;
     int battery_now = atoi(buffer);
 
-    if(battery_now == power_state.power_level) return 0;
-    power_state.power_level = battery_now;
-    api->mod->send_data(data, &power_data);
+    if(battery_now == state->power_level) return 0;
+	state->power_level = battery_now;
     
     return 0;
 }
 
-int ac_get(sd_bus_message * m, void * data, sd_bus_error * ret_error){
+int ac_get(sd_bus_message * m, void * udata, sd_bus_error * ret_error){
 	printf("charge triggered\n");
-	struct wb_public_api * api = mod.data;
+	struct power_data * data = udata;
+	struct power_info * state = data->state;
+	const struct wb_public_api * api = mod.data;
 	static int file_fd = 0;
 
 	if (file_fd == 0){
@@ -148,12 +168,11 @@ int ac_get(sd_bus_message * m, void * data, sd_bus_error * ret_error){
 
     int charge_now = buffer[0] - 48;
 
-	if (charge_now == power_state.charge_status){
+	if (charge_now == state->charge_status){
 		return 0;
 	}
 	
-	power_state.charge_status = charge_now;
-	api->mod->send_data(data, &power_data); 
+	state->charge_status = charge_now;
     
     return 0;
 }
@@ -166,7 +185,7 @@ void handle_event(struct epoll_event * event){
 	while(sd_bus_process(gbus, NULL) > 0);
 }
 
-void bat_set(sd_bus * bus, struct wb_context * ctx){
+void bat_set(sd_bus * bus, void * data){
 	sd_bus_slot * slot;
 
 	sd_bus_match_signal(bus,
@@ -176,11 +195,11 @@ void bat_set(sd_bus * bus, struct wb_context * ctx){
 						NULL,
 						"PropertiesChanged",
 						power_get,
-						ctx);
+						data);
 
 }
 
-void ac_set(sd_bus * bus, struct wb_context * ctx){
+void ac_set(sd_bus * bus, void * data){
 	sd_bus_slot * slot;
 
 	sd_bus_match_signal(bus,
@@ -190,18 +209,37 @@ void ac_set(sd_bus * bus, struct wb_context * ctx){
 						NULL,
 						"PropertiesChanged",
 						ac_get,
-						ctx);
+						data);
 
 }
 
-void power_set(struct wb_context * ctx){
+/*
+ * TODO
+ * handle NULL state of modules
+ */
+void * power_set(struct wb_context * ctx){
+	struct power_info * state = malloc(sizeof(struct power_info));
+	if (state == NULL)
+			return NULL;
+
+	struct power_data * data = malloc(sizeof(struct power_data));
+	if (data == NULL){
+		free(state);
+		return NULL;
+	}
+
+	data->ctx = ctx;
+	data->state = state;
+
 	sd_bus * bus;
 	sd_bus_default_system(&bus);
-	bat_set(bus, ctx);
-	ac_set(bus, ctx);
-	power_get(NULL, ctx, NULL);
-	ac_get(NULL, ctx, NULL);
+	bat_set(bus, data);
+	ac_set(bus, data);
 
+	power_get(NULL, data, NULL);
+	ac_get(NULL, data, NULL);
+
+	return data;
 }
 
 int get_power_fd(struct wb_context * ctx){

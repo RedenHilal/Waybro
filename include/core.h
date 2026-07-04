@@ -8,6 +8,7 @@
 #include "xdg-shell-client.h"
 
 struct wb_render;
+struct wb_context;
 struct module_interface;
 struct wb_config_setting;
 
@@ -33,7 +34,8 @@ struct wb_appstate{
 // wayland mess stored here
 
 int
-setwayland(struct wb_appstate * appstate, struct wb_render * wrender);
+setwayland(struct wb_appstate * appstate, struct wb_render * wrender,
+				struct wb_context * ctx);
 
 void
 draw(struct wb_appstate *);

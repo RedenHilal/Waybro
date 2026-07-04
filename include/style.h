@@ -3,9 +3,8 @@
 
 #include "macro.h"
 
-#define WB_PADDING_ALL(pd) {pd, pd, pd, pd}
-#define WB_COLOR_FROM_RGBA(color) GET_RED(color), GET_GREEN(color), GET_BLUE(color),\
-		GET_ALPHA(color)
+#define WB_COLOR_FROM_RGBA(color) {GET_RED(color), GET_GREEN(color), GET_BLUE(color),\
+		GET_ALPHA(color)}
 
 #define WB_STYLE_STR_SIZE 64
 
@@ -47,9 +46,10 @@ struct config_dispatch {
 		void * default_ptr;
 	};
 	int array_size;
-	void ( *custom_parse)(void * start, const struct config_dispatch * dispatch,
-					struct wb_config_setting * mod_set);
+	void ( *custom_parse)(struct wb_config_setting * mod_set,
+					const struct config_dispatch * dispatch, void * data);
 	int offset;
+	int size_offset;
 	int field_type;
 	int field_modifier;
 };
@@ -58,25 +58,32 @@ struct wb_style_main {
     int width;
     int height;
 
-	int padding;
+	int padding[4];
 	int fill_color;
 
 	char ** fonts;
+	int font_option_size;
 	int font_size;
 
 	int text_color;
 	int radius;
 
-	int border_width;
+	int border_width[4];
 	int border_color;
 
+	int group_gap;
 	int group_color;
 	int group_radius;
-	int group_border_width;
+	int group_border_width[4];
 	int group_border_color;
 
+	int module_gap;
+	int module_fill_color;
+	int module_hover_color;
+	int module_active_color;
+	int module_padding[4];
 	int module_radius;
-	int module_border_width;
+	int module_border_width[4];
 	int module_border_color;
 	int module_color;
 	int module_color_hover;
@@ -90,6 +97,10 @@ wb_style_get_main(struct wb_config_setting * wcfg);
 void
 wb_style_parse_config(struct config_dispatch * dp, int length, void * start,
 				struct wb_config_setting * set);
+
+void
+wb_style_parse_side_styles(struct wb_config_setting * mod_set,
+				const struct config_dispatch * dispatch, void * start);
 
 // unused
 

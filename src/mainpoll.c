@@ -8,10 +8,13 @@
 #include "comm.h"
 
 
-static void set_wpoll(struct module_context * mod_ctx,
-					struct wb_context * ctx, struct wb_poll_fort * fort){
+static void
+set_wpoll(struct module_context * mod_ctx,
+					struct wb_context * ctx, struct wb_poll_fort * fort)
+{
 
 	int mod_count = mod_ctx->module_count;
+	mod_ctx->handles = malloc(sizeof(struct wb_poll_handle *) * mod_count);
     for(int i = 0; i < mod_count; i++){
 		struct module_interface * interface = mod_ctx->interfaces[i];
 
@@ -24,8 +27,10 @@ static void set_wpoll(struct module_context * mod_ctx,
     }
 }
 
-static void handle_events(struct module_context * mod_ctx, struct wb_poll_fort * fort,
-				struct wb_poll_event * event, struct wb_context * ctx){
+static void
+handle_events(struct module_context * mod_ctx, struct wb_poll_fort * fort,
+				struct wb_poll_event * event, struct wb_context * ctx)
+{
 
 	void * data;
 	while ((data = wb_poll_reap_event(fort, event)) != NULL){
@@ -44,15 +49,19 @@ static void handle_events(struct module_context * mod_ctx, struct wb_poll_fort *
 	}
 }
 
-static void module_setup(struct module_context * mod_ctx, struct wb_context * ctx){
+static void
+module_setup(struct module_context * mod_ctx, struct wb_context * ctx)
+{
 	int mod_count = mod_ctx->module_count;
 	for (int i = 0; i < mod_count; i++){
 		mod_ctx->states[i] = mod_ctx->interfaces[i]->set_up(ctx);
 	}
+
 }
 
-void * mainpoll(void * data){
-
+void *
+mainpoll(void * data)
+{
     struct wb_poll_event events[MAKS_EVENT];
     struct module_context * mod_ctx = data; 
 	sem_t * sem = mod_ctx->sem;
@@ -63,22 +72,19 @@ void * mainpoll(void * data){
 
 	struct wb_poll_fort * fort = wb_poll_create(O_CLOEXEC, WB_EVENT_EDGE);
 
-	struct wb_context wb_ctx = {
-			.mod_int = interfaces, 
-			.pipe = pipe, 
-			.fort = fort
-	};
+	struct wb_context * ctx = mod_ctx->ctx;
+	ctx->fort = fort;
 
-    set_wpoll(mod_ctx, &wb_ctx, fort);
+    set_wpoll(mod_ctx, ctx, fort);
 
-	module_setup(mod_ctx, &wb_ctx);
+	module_setup(mod_ctx, ctx);
 	sem_post(sem);
 
     while (1) {
         int ready = wb_poll_wait_events(fort, events, MAKS_EVENT, -1);
 
         for(int i = 0; i < ready; i++){
-			handle_events(mod_ctx, fort, &events[i], &wb_ctx);
+			handle_events(mod_ctx, fort, &events[i], ctx);
         }
     }
 }

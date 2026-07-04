@@ -6,6 +6,7 @@
 #include "module.h"
 #include "config.h"
 #include "style.h"
+#include "macro.h"
 
 extern const struct wb_config_api config_api;
 extern const struct wb_mod_api mod_api;
@@ -45,13 +46,13 @@ load_modules(struct wb_config_setting * mods, int * count,
 		handle = dlopen(path, RTLD_NOW);
 
 		if (handle == NULL){
-			printf("Failed to load Module %s\nErr: %s\n", path, dlerror());
+			LOG_ERR("%s\n", dlerror());
 			continue;
 		}
 
 		init = dlsym(handle, "mod_init");
 		if (init == NULL){
-			printf("Failed to init Module %s\nErr: %s\n", path, dlerror());
+			LOG_ERR("%s\n", dlerror());
 			continue;
 		}
 
@@ -62,8 +63,10 @@ load_modules(struct wb_config_setting * mods, int * count,
 		mod_int->id = mod_found;
 		mod_int->api = &api;
 		mod_sets[mod_found] = mod_fnd;
+		mod_found++;
 	}
-
+	
+	LOG_INFO("%d %s\n", mod_found, "Modules found");
 	*count = mod_found;
 	return interfaces;
 }

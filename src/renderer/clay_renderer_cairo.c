@@ -95,6 +95,12 @@ static inline Clay_Dimensions Clay_Cairo_MeasureText(Clay_StringSlice str, Clay_
     Clay_String toTerminate = (Clay_String){ .chars = str.chars, .length = str.length, .isStaticallyAllocated = false };
 	char *text = Clay_Cairo__NullTerminate(&toTerminate);
 	char *font_family = fonts[config->fontId];
+	int len = strlen(text);
+	if (len < 1)
+			return (Clay_Dimensions) {
+				.width = 0,
+				.height = 0
+			};
 
 	char font_desc[64];
 	snprintf(font_desc, sizeof(font_desc), "%s %d", font_family, config->fontSize);
@@ -154,6 +160,7 @@ void Clay_Cairo_Render(Clay_RenderCommandArray commands, char** fonts) {
 	cairo_t *cr = Clay__Cairo;
 	for(size_t i = 0; i < commands.length; i++) {
 		Clay_RenderCommand *command = Clay_RenderCommandArray_Get(&commands, i);
+		Clay_BoundingBox bbb = command->boundingBox;
 
 		switch(command->commandType) {
 		case CLAY_RENDER_COMMAND_TYPE_RECTANGLE: {

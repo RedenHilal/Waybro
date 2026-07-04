@@ -41,6 +41,12 @@ wb_config_s_name(struct wb_config_setting * set);
 int
 wb_config_is_array(struct wb_config_setting * set);
 
+int
+wb_config_is_list(struct wb_config_setting * set);
+
+int
+wb_config_is_number(struct wb_config_setting * set);
+
 /*
  * retrieval
  * type refers to enum wb_style_type in style.h

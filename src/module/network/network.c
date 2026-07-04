@@ -232,26 +232,17 @@ static int handle_station(struct nl_msg * msg, void * data){
 	return NL_OK;
 }
 
-static int nl_recv_valid_cb(struct nl_msg * msg, void * data){
+static int
+handle_interface(struct nl_msg * msg, void * data)
+{
 	struct wb_public_api * api = mod.data;
 	struct wb_context * ctx = data;
-	// this handle init information
+
 	struct nlmsghdr * nlh = nlmsg_hdr(msg);
 	struct genlmsghdr * gnlh = genlmsg_hdr(nlh);
 
-	if (gnlh->cmd == NL80211_CMD_NEW_SCAN_RESULTS){
-		return handle_scan(msg, data);		
-	}
-
-	if (gnlh->cmd == NL80211_CMD_NEW_STATION){
-		return handle_station(msg, data);
-	}
-
-	if (gnlh->cmd != NL80211_CMD_NEW_INTERFACE)
-		return NL_OK;
-
-	struct nlattr * attrs[NL80211_ATTR_MAX + 1];
-	struct nlattr * bss[NL80211_BSS_MAX + 1];
+	struct nl * attrs[NL80211_ATTR_MAX + 1];
+	struct nl * bss[NL80211_BSS_MAX + 1];
 
 	genlmsg_parse(nlh, 0, attrs, NL80211_ATTR_MAX, attr_policy);
 
@@ -272,7 +263,9 @@ static int nl_recv_valid_cb(struct nl_msg * msg, void * data){
 
 			nl_send_auto(nls->sock, rmsg);
 			nl_recvmsgs_default(nls->sock);	
-	} else {
+	} 
+
+	else {
 		struct network_state network_data;
 		struct wb_data wbdata;
 		wbdata.id = mod.id;
@@ -282,6 +275,24 @@ static int nl_recv_valid_cb(struct nl_msg * msg, void * data){
 
 		api->mod->send_data(ctx, &wbdata);
 	}
+}
+
+static int nl_recv_valid_cb(struct nl_msg * msg, void * data){
+
+	// recv all msg and routes handling
+	struct nlmsghdr * nlh = nlmsg_hdr(msg);
+	struct genlmsghdr * gnlh = genlmsg_hdr(nlh);
+
+	if (gnlh->cmd == NL80211_CMD_NEW_SCAN_RESULTS){
+		return handle_scan(msg, data);		
+	}
+
+	else if (gnlh->cmd == NL80211_CMD_NEW_STATION){
+		return handle_station(msg, data);
+	}
+
+	else if (gnlh->cmd != NL80211_CMD_NEW_INTERFACE)
+		return handle_interface(msg, data);
 
 	return NL_OK;
 }

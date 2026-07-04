@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(Waybro C)
 
-set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD 23)
 set(APP_NAME "waybro")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/src/module")
 set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
@@ -34,15 +34,16 @@ add_executable(waybro
     src/xdg-shell-client.c
     src/wlr-layer-shell.c
     src/waylandstuff.c
+	src/widget.c
 )
 
 
 target_compile_options(waybro PRIVATE
-	$<$<CONFIG:Debug>:-O0 -g -fsanitize=undefined,address>
+	$<$<CONFIG:Debug>:-O0 -g -fsanitize=undefined>
 )
 
 target_link_options(waybro PRIVATE
-	$<$<CONFIG:Debug>:-O0 -g -fsanitize=undefined,address>
+	$<$<CONFIG:Debug>:-O0 -g -fsanitize=undefined>
 )
 
 separate_arguments(BKL_FLAGS)
@@ -67,11 +68,11 @@ add_library(waybro_api INTERFACE)
 target_include_directories(waybro_api INTERFACE include)
 
 target_compile_options(waybro_api INTERFACE
-	$<$<CONFIG:Debug>:-O0 -g -fsanitize=undefined,address -static-libasan>
+	$<$<CONFIG:Debug>:-O0 -g -fsanitize=undefined>
 )
 
 target_link_options(waybro_api INTERFACE
-	$<$<CONFIG:Debug>:-O0 -g -fsanitize=undefined,address -static-libasan>
+	$<$<CONFIG:Debug>:-O0 -g -fsanitize=undefined>
 )
 
 add_subdirectory(src/module/)
