@@ -16,7 +16,7 @@ void parse_ws_sty(struct wb_style_sec * sec, struct wb_style_main * msty);
 int get_workspace_fd(struct wb_context * ctx);
 void workspace_get(struct wb_event * event, struct wb_context * ctx);
 void get_workspace_data(struct wb_context * ctx);
-void ws_render(struct wb_render * render, struct wb_data * data);
+void ws_render(struct wb_render * render, void * state);
 
 struct ws_style {
     struct wb_style_base base;
@@ -42,7 +42,7 @@ static struct module_interface mod = {
 	.get_fd			= get_workspace_fd,
 	.set_up			= get_workspace_data,
 	.handle_event	= workspace_get,
-	.handle_update	= ws_render,
+	.emit_layout	= ws_render,
 	.clean_up		= NULL
 };
 
@@ -51,8 +51,6 @@ struct module_interface * mod_init(int id, struct wb_public_api * api){
 	mod.id = id;
 
 	struct ws_data * wsdata = malloc(sizeof(struct ws_data));
-	_Static_assert(sizeof(struct ws_data) <= 
-					sizeof(((struct wb_data *)0)->str_val));
 
 	mod.data = wsdata;
 	wsdata->api = api;

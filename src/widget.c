@@ -64,7 +64,7 @@ wb_widget_free_id(struct wb_context * ctx, int id)
 	}
 
 	ctx->ilist->ncount--;
-	ctx->ilist->fs_count++;
+	ctx->ilist->fs[ctx->ilist->fs_count++] = id;
 
 	free(ctx->ilist->node[id]);
 	ctx->ilist->node[id] = NULL;

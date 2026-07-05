@@ -64,7 +64,7 @@ static const struct config_dispatch main_table[] = {
 	},
 	{
 		.field_name = "text_color",
-		.default_int = 0x0,
+		.default_int = 0xffffffff,
 		.field_type = WB_STYLE_INT,
 		.offset = offsetof(struct wb_style_main, text_color)
 	},
