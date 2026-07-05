@@ -55,11 +55,9 @@ draw_text(void * udata)
 	strftime(state->text, TEXT_MAX, fmt, &state->time);
 	LOG_INFO("%s\n", state->text);
 
-	struct wb_widget_text_data text = {
-		.string = state->text,
-		.font_size = 12,
-		.text_color = {255, 255, 255, 255}
-	};
+	struct wb_widget_text_data text = api->widget->default_text(data->ctx);
+	text.string = state->text;
+
 	api->widget->text(data->ctx, &text);
 }
 
@@ -82,15 +80,14 @@ void clock_render(struct wb_context * ctx, void * data){
 	static int id = -1;
 
 	struct clock_data cb_data = {ctx, state};
-	int event = api->widget->get_event(ctx, id);
 
 	if (id < 0) {
 		id = api->widget->allocate_id(ctx);
 		api->widget->set_id(ctx, id, state, WB_POINTER_BUTTON | WB_POINTER_HOVER,
 						&clock_cb);
-		LOG_INFO("id = %d\n", id);
 	}
 	
+	int event = api->widget->get_event(ctx, id);
 	struct wb_widget_rect_special rect = {
 		.rect = api->widget->default_rect(ctx, event)
 	};
