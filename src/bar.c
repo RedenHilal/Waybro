@@ -15,7 +15,7 @@ struct module_group {
 };
 
 static void
-wb_bar_modules_cb(void * data)
+wb_bar_modules_cb(struct wb_context * ctx, void * data)
 {
 	struct module_group * group = data;
 	struct module_context * mod_ctx = group->mod_ctx;
@@ -39,10 +39,17 @@ wb_bar_modules_cb(void * data)
 }
 
 static void
-wb_bar_group_cb(void * data)
+wb_bar_group_cb(struct wb_context * ctx, void * data)
+{
+	struct wb_widget_rect_basic * group = data;
+
+	wb_widget_rect(ctx, group);
+}
+
+static void
+wb_bar_group_parent_cb(struct wb_context * ctx, void * data)
 {
 	struct module_context * mod_ctx = data;
-	struct wb_context * ctx = mod_ctx->ctx;
 	struct wb_style_main * msty = ctx->msty;
 	struct wb_layout * layout = ctx->layout;
 	struct wb_layout_node * head = layout->lhead;
@@ -55,9 +62,9 @@ wb_bar_group_cb(void * data)
 	};
 
 	int group_sizing[3] = {
-		WB_WIDGET_FIXED,
 		WB_WIDGET_GROW,
-		WB_WIDGET_FIXED
+		WB_WIDGET_FIXED,
+		WB_WIDGET_GROW
 	};
 
 	int group_layout[3] = {
@@ -66,13 +73,19 @@ wb_bar_group_cb(void * data)
 		WB_WIDGET_RIGHT
 	};
 
+	struct wb_widget_rect_basic parent = {
+		.child_cb = wb_bar_group_cb,
+		.sizing_height = WB_WIDGET_GROW
+	};
+
 	struct wb_widget_rect_basic group = {
 		.padding = {pad[0], pad[1], pad[2], pad[3]},
 		.child_cb = wb_bar_modules_cb,
 		.radius = msty->radius,
 		.sizing_height = WB_WIDGET_GROW,
-		.width = {0, FLT_MAX},
-		.height = {0, FLT_MAX},
+		.sizing_width = WB_WIDGET_FIT,
+		.width = {0},
+		.height = {0},
 		.direction = WB_WIDGET_LEFT_TO_RIGHT,
 		.fill_color = WB_COLOR_FROM_RGBA(msty->group_color),
 		.child_gap = msty->module_gap
@@ -90,10 +103,13 @@ wb_bar_group_cb(void * data)
 				.mod_ctx = mod_ctx
 		};
 
+		parent.sizing_width = group_sizing[i];
+		parent.data = &group;
+		parent.layout_x = group_layout[i];
+
 		group.layout_x = group_layout[i];
 		group.data = &data;
-		group.sizing_width = group_sizing[i];
-		wb_widget_rect_with_id(&group, "group", i);
+		wb_widget_rect_with_id(ctx, &parent, "parent", i);
 	}
 
 }
@@ -118,11 +134,11 @@ wb_bar_main(struct module_context * mod_ctx)
 		.layout_y = WB_WIDGET_CENTER,
 		.direction = WB_WIDGET_LEFT_TO_RIGHT,
 
-		.child_cb = wb_bar_group_cb,
+		.child_cb = wb_bar_group_parent_cb,
 		.data = mod_ctx
 	};
 
-	wb_widget_rect_with_id(&main, "main", 0);
+	wb_widget_rect_with_id(ctx, &main, "main", 0);
 }
 
 void
