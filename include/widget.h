@@ -168,7 +168,7 @@ struct wb_widget_rect_basic {
 	enum wb_widget_layout_alignment layout_y;
 	enum wb_widget_layout_direction direction;
 
-	void (* child_cb)(void * data);
+	void (* child_cb)(struct wb_context * ctx, void * data);
 	void * data;
 };
 
@@ -222,10 +222,11 @@ void
 wb_widget_listen_clean(struct wb_context * ctx);
 
 void
-wb_widget_rect(struct wb_widget_rect_basic * data);
+wb_widget_rect(struct wb_context * ctx, struct wb_widget_rect_basic * data);
 
 int
-wb_widget_rect_with_id(struct wb_widget_rect_basic * data, char * id, int index);
+wb_widget_rect_with_id(struct wb_context * ctx,
+				struct wb_widget_rect_basic * data, char * id, int index);
 
 int
 wb_widget_rect_special(struct wb_context * ctx, struct wb_widget_rect_special * data);

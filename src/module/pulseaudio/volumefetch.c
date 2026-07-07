@@ -58,7 +58,7 @@ mod_init()
 }
 
 static void
-pa_render_text(void * data)
+pa_render_text(struct wb_context * ctx, void * data)
 {
 	struct pa_cb_render_data * cd = data;
 	const struct wb_public_api * api = mod.api;
@@ -145,7 +145,6 @@ pa_subscribe_cb(pa_context * c, pa_subscription_event_type_t t,
 {
 
 	t = t & PA_SUBSCRIPTION_EVENT_FACILITY_MASK;
-	printf("triggered subscribe\n");
 	switch (t){
 		case PA_SUBSCRIPTION_EVENT_SINK:
 			pa_context_get_server_info(c, pa_server_info_cb, data);
@@ -162,7 +161,6 @@ static void
 pa_state_cb(pa_context * c, void * data)
 {
 	pa_context_state_t state = pa_context_get_state(c);
-
 	LOG_INFO("Pulseaudio ready cb triggered\n");
 
 	switch (state){

@@ -102,7 +102,7 @@ struct wb_mod_api {
 
 struct wb_widget_api {
 
-	void (* rect)(struct wb_widget_rect_basic * data);
+	void (* rect)(struct wb_context * ctx, struct wb_widget_rect_basic * data);
 
 	void (* text)(struct wb_context * ctx, struct wb_widget_text_data * data);
 

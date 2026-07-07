@@ -45,7 +45,7 @@ struct module_interface * mod_init(int id, struct wb_public_api * api){
 }
 
 static void
-draw_text(void * udata)
+draw_text(struct wb_context * ctx, void * udata)
 {
 	struct clock_data * data = udata;
 	struct clock_state * state = data->state;
