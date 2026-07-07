@@ -52,11 +52,10 @@ get_power_sty(struct wb_config_setting * set, struct wb_style_main * msty,
 }
 
 static void
-draw_text(void * data)
+draw_text(struct wb_context * ctx, void * data)
 {
 	struct power_state * state = data;
 	const struct wb_public_api * api = mod.api;
-	struct wb_context * ctx = state->ctx;
 
 	snprintf(state->text, 64, "%d%%", state->power_level);
 	struct wb_widget_text_data text = api->widget->default_text(ctx);
