@@ -214,7 +214,7 @@ get_clay_size(enum wb_widget_sizing_type type, union wb_widget_sizing_unit val)
  * TODO
  * Implement sizing correctly
  */
-void wb_widget_rect(struct wb_widget_rect_basic * data)
+void wb_widget_rect(struct wb_context * ctx, struct wb_widget_rect_basic * data)
 {
 	struct wb_widget_color fc = data->fill_color;
 	struct wb_widget_color bc = data->border_color;
@@ -250,7 +250,7 @@ void wb_widget_rect(struct wb_widget_rect_basic * data)
 		.cornerRadius = {radius, radius, radius, radius},
 	}){
 		if (data->child_cb)
-			data->child_cb(data->data);
+			data->child_cb(ctx, data->data);
 	};
 }
 
@@ -294,7 +294,7 @@ wb_widget_rect_special(struct wb_context * ctx, struct wb_widget_rect_special * 
 		.cornerRadius = {radius, radius, radius, radius},
 	}){
 		if (data->child_cb)
-			data->child_cb(data->data);
+			data->child_cb(ctx, data->data);
 	};
 
 	if (wb_widget_listen_insert(ctx, rect->event) < 0)
@@ -304,7 +304,8 @@ wb_widget_rect_special(struct wb_context * ctx, struct wb_widget_rect_special * 
 }
 
 int
-wb_widget_rect_with_id(struct wb_widget_rect_basic * data, char * id, int index)
+wb_widget_rect_with_id(struct wb_context * ctx, struct wb_widget_rect_basic * data,
+				char * id, int index)
 {
 	struct wb_widget_color fc = data->fill_color;
 	struct wb_widget_color bc = data->border_color;
@@ -346,7 +347,7 @@ wb_widget_rect_with_id(struct wb_widget_rect_basic * data, char * id, int index)
 		.cornerRadius = {radius, radius, radius, radius},
 	}){
 		if (data->child_cb)
-			data->child_cb(data->data);
+			data->child_cb(ctx, data->data);
 	};
 }
 
