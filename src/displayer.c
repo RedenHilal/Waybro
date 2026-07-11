@@ -39,6 +39,7 @@ parse_mod_stys(struct module_interface ** interfaces, int mod_count,
 		
 		wb_style_get_base(base, mod_sets[i], msty);
         interfaces[i]->parse_sty(mod_sets[i], msty, base);
+		interfaces[i]->base_style = base;
 		// clean up later
     }
 }

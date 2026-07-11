@@ -5,6 +5,7 @@
 #include "module.h"
 #include "macro.h"
 #include "widget.h"
+#include "style.h"
 
 #define CHARGE_PATH "/sys/class/power_supply/AC0/online"
 #define POWER_PATH "/sys/class/power_supply/BAT0/capacity"
@@ -26,6 +27,7 @@ struct power_state {
 	int power_level;
 	int charge_status;
 	char text[64];
+	char format[64];
 };
 
 sd_bus * gbus = NULL;
@@ -57,7 +59,10 @@ draw_text(struct wb_context * ctx, void * data)
 	struct power_state * state = data;
 	const struct wb_public_api * api = mod.api;
 
-	snprintf(state->text, 64, "%d%%", state->power_level);
+	LOG_INFO("%s\n", mod.base_style->format);
+	api->mod->sub_text(mod.base_style->format, "bat", state->text,
+					&state->power_level, WB_MOD_INT, 64);
+
 	struct wb_widget_text_data text = api->widget->default_text(ctx);
 	text.string = state->text;
 

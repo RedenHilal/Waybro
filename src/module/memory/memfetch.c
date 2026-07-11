@@ -7,6 +7,7 @@
 #include "module.h"
 #include "widget.h"
 #include "macro.h"
+#include "style.h"
 
 #define MEM_PATH "/proc/meminfo"
 
@@ -54,19 +55,14 @@ const struct wb_widget_callback mem_cb = {
 };
 
 static void
-mem_update_text(struct mem_state * state)
-{
-	snprintf(state->text, 64, "%d%%", state->mem_used);
-}
-
-static void
 draw_text(struct wb_context * ctx, void * data)
 {
 	const struct wb_public_api * api = mod.api;
 	struct mem_state * state = data;
 
 	struct wb_widget_text_data text = api->widget->default_text(ctx);
-	mem_update_text(state);
+	api->mod->sub_text(mod.base_style->format, "mem", state->text,
+					&state->mem_used, WB_MOD_LL, 64);
 	text.string = state->text;
 
 	api->widget->text(ctx, &text);
@@ -148,7 +144,7 @@ read_mem(struct mem_state * state)
 	int mem_avail = strtod(buffer + space_begin, &endptr);
     state->mem_avail = mem_avail;
     
-    state->mem_used = (mem_cap - mem_free) * 100 / mem_cap;
+    state->mem_used = (mem_cap - mem_avail) * 100 / mem_cap;
 
     fclose(mem_fd);
 	return 0;

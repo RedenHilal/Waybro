@@ -188,6 +188,12 @@ static const struct config_dispatch base_table[] = {
 		.default_int = 0,
 		.field_type = WB_STYLE_INT,
 		.offset = offsetof(struct wb_style_base, margin_right)
+	},
+	{
+		.field_name = "format",
+		.default_str = (const char *) "",
+		.field_type = WB_STYLE_STRING,
+		.offset = offsetof(struct wb_style_base, format)
 	}
 };
 
@@ -215,6 +221,7 @@ log_config_value(void * target, const struct config_dispatch * dispatch)
 		case WB_STYLE_CUSTOM:
 				break;
 	}
+	
 }
 
 static void
@@ -245,8 +252,10 @@ wb_style_assign_field(void * start, const struct config_dispatch * dispatch,
 	int res = wb_config_s_lookup(mod_set, dispatch->field_name,
 					target, dispatch->field_type);
 
+
 	if (res < 0) {
-		memcpy(target, &dispatch->default_int, wb_style_type_size[dispatch->field_type]);
+		int size = wb_style_type_size[dispatch->field_type];
+		memcpy(target, &dispatch->default_int, size);
 	}
 
 	log_config_value(target, dispatch);
@@ -258,7 +267,7 @@ wb_style_assign_field(void * start, const struct config_dispatch * dispatch,
  * actually scalar data types were passed as well.
  *
  * moreover, setting returned from wb_config_s_get_setting
- * must be freed, and the implementation is yet to be made.
+ * must be freed, and the implementation has yet to be made.
  */
 static void
 wb_style_handle_nonscalar(void * start, const struct config_dispatch * dispatch,
@@ -285,7 +294,6 @@ wb_style_handle_nonscalar(void * start, const struct config_dispatch * dispatch,
 				if (res <= 0)
 						goto default_arr;
 
-				printf("length = %d\n", res);
 				int * arr_size = (int *)size_target;
 				*arr_size = res;
 				log_config_array(arr, dispatch, res);
