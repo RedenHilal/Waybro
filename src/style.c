@@ -355,7 +355,7 @@ wb_style_get_base(struct wb_style_base * base, struct wb_config_setting * mod_se
 }
 
 void
-wb_style_parse_config(struct config_dispatch * dp, int length,
+wb_style_parse_config(const struct config_dispatch * dp, int length,
 				void * start, struct wb_config_setting * mod_set)
 {
 	for (int i = 0; i < length; i++){
