@@ -140,6 +140,7 @@ wb_widget_hit_multiple_widget(struct wb_context * ctx, double x, double y, int e
 			hit_count++;
 		}
 	}
+
 	return hit_count;
 }
 

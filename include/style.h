@@ -46,6 +46,9 @@ struct config_dispatch {
 		void * default_ptr;
 	};
 	int array_size;
+	/*
+	 * for WB_STLE_STRING type
+	 */
 	void ( *custom_parse)(struct wb_config_setting * mod_set,
 					const struct config_dispatch * dispatch, void * data);
 	int offset;
@@ -95,19 +98,18 @@ struct wb_style_main *
 wb_style_get_main(struct wb_config_setting * wcfg);
 
 void
-wb_style_parse_config(struct config_dispatch * dp, int length, void * start,
+wb_style_parse_config(const struct config_dispatch * dp, int length, void * start,
 				struct wb_config_setting * set);
 
 void
 wb_style_parse_side_styles(struct wb_config_setting * mod_set,
 				const struct config_dispatch * dispatch, void * start);
 
-// unused
-
 struct wb_style_base {
 	int width;
 	int margin_left;
 	int margin_right;
+	char * format;
 };
 
 

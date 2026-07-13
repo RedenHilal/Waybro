@@ -9,6 +9,7 @@
 #include "module.h"
 #include "widget.h"
 #include "macro.h"
+#include "style.h"
 
 #define BKL_OPTION_PATH "/sys/class/backlight"
 #define BKL_BRIGHTNESS_FILE "brightness"
@@ -29,11 +30,6 @@ struct backlight_state {
 	int openfd;
 	int bkl_level;
 	int max_brightness;
-};
-
-struct cb_data {
-	struct backlight_state * state;
-	struct wb_context * ctx;
 };
 
 static struct module_interface mod = {
@@ -57,14 +53,15 @@ static const struct wb_widget_callback bkl_cb = {
 static void
 render_text(struct wb_context * ctx, void * data)
 {
-	struct cb_data * cb_data = data;
-	struct backlight_state * state = cb_data->state;
+	struct backlight_state * state = data;
 	const struct wb_public_api * api = mod.api;
 
-	struct wb_widget_text_data text = api->widget->default_text(cb_data->ctx);
+	api->mod->sub_text(mod.base_style->format, "brightness", state->text,
+					&state->bkl_level, WB_MOD_INT, 64);
+	struct wb_widget_text_data text = api->widget->default_text(ctx);
 	text.string = state->text;
 
-	api->widget->text(cb_data->ctx, &text);
+	api->widget->text(ctx, &text);
 }
 
 void
@@ -80,13 +77,12 @@ backlight_render(struct wb_context * ctx, void * data)
 	}
 
 	int event = api->widget->get_event(ctx, id);
-	struct cb_data cb_data = {state, ctx};
 	
 	struct wb_widget_rect_special rect = {
 		.rect = api->widget->default_rect(ctx, event)
 	};
 
-	rect.rect.data = &cb_data;
+	rect.rect.data = state;
 	rect.rect.child_cb = render_text;
 
 	api->widget->bind_id(ctx, id, &rect);
@@ -126,7 +122,6 @@ void brightness_get(struct wb_event * event, struct wb_context * ctx, void * dat
 	}
 
 	state->bkl_level = brightness;
-	snprintf(state->text, 64, "%d%%", brightness);
 	api->mod->trigger_update(ctx);
 }
 

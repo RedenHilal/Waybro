@@ -3,6 +3,7 @@
 
 struct module_context;
 struct wb_render;
+struct wb_context;
 
 void
 wb_bar_init(struct wb_render * wrender);

@@ -1,5 +1,6 @@
 #include <linux/input-event-codes.h>
 
+#include "wayland-internal.h"
 #include "displayer.h"
 #include "style.h"
 #include "core.h"
@@ -69,7 +70,6 @@ static void wl_callback_done(void * data, struct wl_callback * callback, uint32_
 	struct wb_appstate * appstate = cb_data->appstate;
     wl_callback_destroy(callback);
     resize(appstate, cb_data->wrender);
-    draw(appstate);
 }
 
 const struct wl_callback_listener wl_callback_listener = {
@@ -149,26 +149,34 @@ static const struct wl_callback_listener wl_cb_listen_frame = {
 	.done = wl_callback_notify_frame
 };
 
+void
+wb_wl_trigger_frame(struct wb_context * ctx, struct module_context * mod_ctx)
+{
+	struct wb_appstate * appstate = ctx->appstate;
+	if (appstate->cb != NULL) {
+		ctx->frame->update = 0;
+		ctx->frame->state_change = 0;
+		return;
+	}
+
+	struct wl_callback * next_callback = wl_surface_frame(ctx->appstate->surface);
+	wl_callback_add_listener(next_callback, &wl_cb_listen_frame, mod_ctx);
+	appstate->cb = next_callback;
+	wl_surface_commit(appstate->surface);
+}
+
 static void wl_callback_notify_frame(void * data, struct wl_callback * callback,
 				uint32_t callback_data)
 {
-	struct wb_context * ctx = data;
+	LOG_INFO("Frame rendered\n");
 	wl_callback_destroy(callback);
+	struct module_context * mod_ctx = data;
+	struct wb_context * ctx = mod_ctx->ctx;
+	struct wb_appstate * appstate = ctx->appstate;
 
-	struct wl_callback * next_callback = wl_surface_frame(ctx->appstate->surface);
-	wl_callback_add_listener(next_callback, &wl_cb_listen_frame, ctx);
-
-	if (ctx->frame->update || ctx->frame->state_change) {
-		ctx->frame->update = 0;
-		ctx->frame->state_change = 0;
-		wb_bar_trigger_update(ctx);
-
-		wl_surface_commit(ctx->appstate->surface);
-	}
-	else {
-		wl_surface_commit(ctx->appstate->surface);
-	}
-
+	appstate->cb = NULL;
+	wb_bar_erase(ctx->render);
+	wb_bar_render(mod_ctx);
 }
 
 static void
@@ -198,8 +206,6 @@ wl_pointer_leave(void * data, struct wl_pointer * pointer, uint32_t serial,
 	ptr->pos.x = -1;
 	ptr->pos.y = -1;
 	ptr->check = 1;
-
-	LOG_INFO("leave\n");
 }
 
 /*
@@ -217,10 +223,6 @@ wl_pointer_frame(void * data, struct wl_pointer * pointer)
 	struct wb_widget_interest_list * ilist = ctx->ilist;
 	struct wb_frame_state * frame = ctx->frame;
 
-	if (ctx->frame->update) {
-		return;
-	}
-
 	if (ptr->check) {
 		ptr->check = 0;
 		int count = wb_widget_hit_multiple_widget(ctx,
@@ -228,6 +230,7 @@ wl_pointer_frame(void * data, struct wl_pointer * pointer)
 
 		if (count) {
 			frame->update = 1;
+			wb_bar_trigger_update(ctx);
 		}
 	}
 	
@@ -249,7 +252,6 @@ wl_pointer_motion(void * data, struct wl_pointer * pointer, uint32_t time,
 	ptr->pos.y = dy;
 	ptr->check = 1;
 
-	//LOG_INFO("wl_pointer_motion - x = %f, y = %f\n", dx, dy);
 }
 
 static void
@@ -259,6 +261,7 @@ wl_pointer_button(void * data, struct wl_pointer * pointer, uint32_t serial,
 	struct cb_data * cb_data = data;
 	struct wb_context * ctx = cb_data->ctx;
 	struct wb_pointer_state * ptr = ctx->ptr;
+	struct wb_frame_state * frame = ctx->frame;
 
 	struct wb_widget_listen_node * node = NULL;
 
@@ -285,7 +288,8 @@ wl_pointer_button(void * data, struct wl_pointer * pointer, uint32_t serial,
 			if (node->on_click) {
 				node->on_click(ctx, node->data);
 			}
-			ptr->check = 1;
+
+			wb_bar_trigger_update(ctx);
 		}
 
 	}
@@ -452,11 +456,7 @@ int setwayland(struct wb_appstate * appstate, struct wb_render * wrender,
 	wl_region_destroy(region);
     wl_surface_commit(appstate->surface);
 
-	struct wl_callback * callback = wl_surface_frame(ctx->appstate->surface);
-	wl_callback_add_listener(callback, &wl_cb_listen_frame, ctx);
-
     wl_display_roundtrip(appstate->display);
 
-  
     return 0;
 }

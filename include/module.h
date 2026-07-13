@@ -34,6 +34,15 @@ struct wb_event {
 	void * data;
 };
 
+enum wb_mod_type {
+	WB_MOD_INT,
+	WB_MOD_LL,
+	WB_MOD_BOOL,
+	WB_MOD_FLOAT,
+	WB_MOD_STRING,
+	WB_MOD_CUSTOM
+};
+
 struct module_interface {
 	char module_name[64];
 	/*
@@ -47,7 +56,13 @@ struct module_interface {
 	 */
 	void * data;
 
+
+	/*
+	 * assigned by backend
+	 */
 	const struct wb_public_api * api;
+	struct wb_style_base * base_style;
+	void * custom_style;
 
 	/*
 	 * module are free to define their own struct
@@ -98,6 +113,11 @@ struct wb_mod_api {
 
 	int (* rmv_sub)(struct wb_context * ctx, struct wb_poll_handle * handle);
 
+	int (* sub_text)(const char * format, const char * label, char * result,
+					const void * target, int type, int length);
+
+	void * (* data_from_handle)(struct wb_context * ctx,
+					struct wb_poll_handle * handle);
 };
 
 struct wb_widget_api {
@@ -130,7 +150,7 @@ struct wb_widget_api {
 
 struct wb_config_api {
 
-	void (* parse_config)(struct config_dispatch * dp, int length, void * start,
+	void (* parse_config)(const struct config_dispatch * dp, int length, void * start,
 					struct wb_config_setting * set);
 
 };

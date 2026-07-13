@@ -9,6 +9,7 @@ struct wb_poll_fort;
 struct module_interface;
 struct wb_poll_handle;
 struct wb_layout;
+struct wb_render;
 
 struct wb_widget_interest_list;
 struct wb_appstate;
@@ -81,6 +82,7 @@ struct wb_context {
 	struct wb_widget_interest_list * ilist;
 	struct wb_layout * layout;
 	struct wb_frame_state * frame;
+	struct wb_render * render;
 };
 
 struct wb_interest {

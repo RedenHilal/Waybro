@@ -3,6 +3,7 @@
 #include "widget.h"
 #include "module.h"
 #include "macro.h"
+#include "style.h"
 
 #include <string.h>
 #include <unistd.h>
@@ -60,13 +61,16 @@ mod_init()
 static void
 pa_render_text(struct wb_context * ctx, void * data)
 {
-	struct pa_cb_render_data * cd = data;
 	const struct wb_public_api * api = mod.api;
+	struct pa_state * state = data;
 
-	struct wb_widget_text_data text = api->widget->default_text(cd->ctx);
-	text.string = cd->state->text;
+	api->mod->sub_text(mod.base_style->format, "vol", state->text,
+					&state->vol_now, WB_MOD_INT, 64);
 
-	api->widget->text(cd->ctx, &text);
+	struct wb_widget_text_data text = api->widget->default_text(ctx);
+	text.string = state->text;
+
+	api->widget->text(ctx, &text);
 }
 
 static const struct wb_widget_callback pa_cb = {
@@ -80,7 +84,6 @@ pa_render(struct wb_context * ctx, void * data)
 	const struct wb_public_api * api = mod.api;
 	static int id = -1;
 
-	struct pa_cb_render_data cb_render_data = {state, ctx};
 
 	if (id < 0) {
 		id = api->widget->allocate_id(ctx);
@@ -92,7 +95,7 @@ pa_render(struct wb_context * ctx, void * data)
 		.rect = api->widget->default_rect(ctx, event)
 	};
 
-	rect.rect.data = &cb_render_data;
+	rect.rect.data = state;
 	rect.rect.child_cb = pa_render_text;
 
 	api->widget->bind_id(ctx, id, &rect);
@@ -122,7 +125,6 @@ pa_sink_info_cb(pa_context * c, const pa_sink_info * i, int eol, void * data)
 	}
 
 	state->vol_now = vol_now;
-	snprintf(state->text, 64, "%d%%", vol_now);
 
 	write(state->pipe, &vol_now, sizeof(int));
 }

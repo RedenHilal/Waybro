@@ -11,6 +11,7 @@
 #include "layout.h"
 #include "widget.h"
 #include "bar.h"
+#include "wayland-internal.h"
 
 #include "macro.h"
 
@@ -39,6 +40,7 @@ parse_mod_stys(struct module_interface ** interfaces, int mod_count,
 		
 		wb_style_get_base(base, mod_sets[i], msty);
         interfaces[i]->parse_sty(mod_sets[i], msty, base);
+		interfaces[i]->base_style = base;
 		// clean up later
     }
 }
@@ -127,7 +129,8 @@ int main()
 			.msty = m_style,
 			.pipe = pipes[1],
 			.ptr = &ptr,
-			.frame = &frame
+			.frame = &frame,
+			.mod_int = interfaces
 	};
 
 	struct module_context mod_ctx = {
@@ -143,6 +146,7 @@ int main()
 			.m_style = m_style
 	};
 
+	wb_ctx.render = &wrender;
 	mutex_init(&mod_ctx);
 	states_init(&mod_ctx);
 
@@ -171,12 +175,10 @@ int main()
 	wl_display_dispatch(appstate.display);
     wl_display_flush(appstate.display);
 	char dump[1024];
-	fsync(pipes[0]);
 
     while (1){
 
         int ready = wb_poll_wait_events(fort, events, MAX_EVENTS, -1);
-
         for(int i = 0; i < ready; i++){
 
             if (events[i].fd == wlfd) {
@@ -192,9 +194,7 @@ int main()
 				/*
 				 * render bar
 				 */
-				wb_bar_erase(&wrender);
-				wb_bar_render(&mod_ctx);
-
+				wb_wl_trigger_frame(&wb_ctx, &mod_ctx);
             }
 
         }

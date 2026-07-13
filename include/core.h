@@ -19,6 +19,7 @@ struct wb_appstate{
     struct wl_surface * surface;
     struct wl_compositor * compositor; 
 	struct wl_region * region;
+	struct wl_callback * cb;
     struct wl_shm * shm;
     struct wl_buffer * buffer;
     struct wl_output * output;
