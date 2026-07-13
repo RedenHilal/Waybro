@@ -155,7 +155,6 @@ wb_bar_render(struct module_context * mod_ctx)
 	wb_bar_main(mod_ctx);
 	
 	wb_layout_compute(ctx);
-
 }
 
 void
@@ -178,7 +177,6 @@ wb_bar_erase(struct wb_render * wrender)
 	cairo_rectangle(cr, 0, 0, msty->width, msty->height);
 	cairo_fill(cr);
 	cairo_restore(cr);
-
 }
 
 void
@@ -187,3 +185,4 @@ wb_bar_trigger_update(struct wb_context * ctx)
 	int pload = 1;
 	write(ctx->pipe, &pload, sizeof(int));
 }
+

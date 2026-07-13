@@ -115,6 +115,9 @@ struct wb_mod_api {
 
 	int (* sub_text)(const char * format, const char * label, char * result,
 					const void * target, int type, int length);
+
+	void * (* data_from_handle)(struct wb_context * ctx,
+					struct wb_poll_handle * handle);
 };
 
 struct wb_widget_api {
@@ -147,7 +150,7 @@ struct wb_widget_api {
 
 struct wb_config_api {
 
-	void (* parse_config)(struct config_dispatch * dp, int length, void * start,
+	void (* parse_config)(const struct config_dispatch * dp, int length, void * start,
 					struct wb_config_setting * set);
 
 };

@@ -24,11 +24,15 @@ int
 wb_mod_sub_text(const char * format, const char * label, char * result,
 				const void * target, int type, int length);
 
+void *
+wb_mod_data_from_handle(struct wb_context * ctx, struct wb_poll_handle * handle);
+
 const struct wb_mod_api mod_api = {
 	.trigger_update = wb_mod_state_change,
 	.reg_sub = wb_mod_reg_sub,
 	.rmv_sub = wb_mod_rmv_sub,
-	.sub_text = wb_mod_sub_text
+	.sub_text = wb_mod_sub_text,
+	.data_from_handle = wb_mod_data_from_handle
 };
 
 struct
@@ -38,7 +42,7 @@ wb_poll_handle * wb_mod_reg_sub(struct wb_context * ctx, int fd,
 	struct wb_poll_handle * handle;
 	struct wb_event_packet * ev_packet = malloc(sizeof(struct wb_event_packet));
 
-	if (ev_packet = NULL)
+	if (ev_packet == NULL)
 		return NULL;
 
 	handle = wb_poll_reg_events(ctx->fort, fd, wevent, ev_packet);
@@ -52,10 +56,17 @@ wb_poll_handle * wb_mod_reg_sub(struct wb_context * ctx, int fd,
 int
 wb_mod_rmv_sub(struct wb_context * ctx, struct wb_poll_handle * handle)
 {
-	void * packet = wb_poll_data_from_handle(handle);
+	struct wb_event_packet * packet = wb_poll_data_from_handle(handle);
 	free(packet);
-	
+
 	return wb_poll_rmv_events(handle);
+}
+
+void *
+wb_mod_data_from_handle(struct wb_context * ctx, struct wb_poll_handle * handle)
+{
+	void * data = wb_poll_data_from_handle(handle);
+	return data;
 }
 
 void
@@ -64,9 +75,6 @@ wb_mod_state_change(struct wb_context * ctx)
 	ctx->frame->state_change = 1;
 }
 
-/*
- * TODO
- */
 int
 wb_mod_sub_text(const char * format, const char * label, char * result,
 				const void * target, int type, int length)

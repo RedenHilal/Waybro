@@ -1,4 +1,5 @@
 #include "fetcher.h"
+#include "bar.h"
 #include "style.h"
 #include "core.h"
 #include "macro.h"
@@ -16,14 +17,17 @@ set_wpoll(struct module_context * mod_ctx,
 	int mod_count = mod_ctx->module_count;
 	mod_ctx->handles = malloc(sizeof(struct wb_poll_handle *) * mod_count);
     for(int i = 0; i < mod_count; i++){
+		struct wb_event_packet * packet = malloc(sizeof(struct wb_event_packet));
 		struct module_interface * interface = mod_ctx->interfaces[i];
 
+		packet->mod_int = interface;
+		packet->udata = mod_ctx->states[i];
 		int fd = interface->get_fd(ctx);
 		if (fd < 0)
 			ON_ERR("Invalid fd")
 
-		mod_ctx->handles[i] = wb_poll_reg_events(fort, fd, WB_EVENT_READ, interface);
-
+		mod_ctx->handles[i] = wb_poll_reg_events(fort, fd, WB_EVENT_READ, packet);
+		packet->handle = mod_ctx->handles[i];
     }
 }
 
@@ -34,13 +38,16 @@ handle_events(struct module_context * mod_ctx, struct wb_poll_fort * fort,
 
 	void * data;
 	while ((data = wb_poll_reap_event(fort, event)) != NULL){
-		struct module_interface * interface = data;
+		struct wb_event_packet * packet = data;
+		struct module_interface * interface = packet->mod_int;
+
 		int id = interface->id;
 		int fd = event->fd;
 
 		struct wb_event wb_event = {
 			.fd = fd,
-			.event = event->ev_mask
+			.event = event->ev_mask,
+			.data = packet->udata
 		};
 
 		pthread_mutex_lock(&mod_ctx->mutexes[id]);
@@ -82,9 +89,12 @@ mainpoll(void * data)
 
     while (1) {
         int ready = wb_poll_wait_events(fort, events, MAKS_EVENT, -1);
-
         for(int i = 0; i < ready; i++){
 			handle_events(mod_ctx, fort, &events[i], ctx);
         }
+
+		if (ctx->frame->state_change) {
+			wb_bar_trigger_update(ctx);
+		}
     }
 }

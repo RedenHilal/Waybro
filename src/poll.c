@@ -1,4 +1,6 @@
 #include "poll.h"
+#include "macro.h"
+
 #include <stdio.h>
 
 struct wb_poll_handle {
@@ -207,6 +209,7 @@ static int get_active_event(struct wb_poll_fd_obj * obj){
 static int modify_event(struct wb_poll_fd_node * node, int event, int event_cur){
 	struct wb_poll_fort * fort = node->fort;
 	int res;
+
 #if defined(A_EPOLL)
 	int event_mask = tl_wb_flags(event_cur);
 	struct epoll_event epevent;
@@ -263,6 +266,10 @@ struct wb_poll_handle * wb_poll_reg_events(struct wb_poll_fort * fort,
 
 	if (ev_add == 0)
 		goto no_add;
+
+	if (fort->edge) {
+		wevent |= WB_EVENT_EDGE;
+	}
 
 #if defined(A_EPOLL)
 	if (active_ev != 0) {

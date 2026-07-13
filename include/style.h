@@ -98,7 +98,7 @@ struct wb_style_main *
 wb_style_get_main(struct wb_config_setting * wcfg);
 
 void
-wb_style_parse_config(struct config_dispatch * dp, int length, void * start,
+wb_style_parse_config(const struct config_dispatch * dp, int length, void * start,
 				struct wb_config_setting * set);
 
 void
