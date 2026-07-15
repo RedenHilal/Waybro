@@ -45,10 +45,11 @@ wb_poll_handle * wb_mod_reg_sub(struct wb_context * ctx, int fd,
 	if (ev_packet == NULL)
 		return NULL;
 
-	handle = wb_poll_reg_events(ctx->fort, fd, wevent, ev_packet);
-	ev_packet->handle = handle;
 	ev_packet->udata = udata;
 	ev_packet->mod_int = ctx->mod_int[id];
+
+	handle = wb_poll_reg_events(ctx->fort, fd, wevent, ev_packet);
+	ev_packet->handle = handle;
 
 	return handle;
 }
