@@ -163,7 +163,6 @@ static void
 pa_state_cb(pa_context * c, void * data)
 {
 	pa_context_state_t state = pa_context_get_state(c);
-	LOG_INFO("Pulseaudio ready cb triggered\n");
 
 	switch (state){
 		case PA_CONTEXT_READY:		

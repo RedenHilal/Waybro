@@ -144,7 +144,6 @@ wb_bar_main(struct module_context * mod_ctx)
 void
 wb_bar_render(struct module_context * mod_ctx)
 {
-	LOG_INFO("render here\n");
 	struct wb_context * ctx = mod_ctx->ctx;
 	wb_widget_print_widget("main",  0);
 

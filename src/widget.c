@@ -191,7 +191,6 @@ wb_widget_get_default_rect(struct wb_context * ctx, int event)
 	struct wb_style_main * msty = ctx->msty;
 	int is_hovered = event & WB_POINTER_HOVER;
 	int fill_color = msty->module_fill_color;
-	LOG_INFO("fill color %x\n", fill_color);
 
 	int * pad = msty->module_padding;
 	int * bw = msty->module_border_width;

@@ -53,7 +53,6 @@ draw_text(struct wb_context * ctx, void * udata)
 
 	char * fmt = state->mode? "%a | %m %B" : "%H:%M";
 	strftime(state->text, TEXT_MAX, fmt, &state->time);
-	LOG_INFO("%s\n", state->text);
 
 	struct wb_widget_text_data text = api->widget->default_text(data->ctx);
 	text.string = state->text;
