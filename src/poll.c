@@ -278,7 +278,7 @@ struct wb_poll_handle * wb_poll_reg_events(struct wb_poll_fort * fort,
 		int events = tl_wb_flags(wevent);
 		struct epoll_event epoll_event;
 
-		epoll_event.events = wevent;
+		epoll_event.events = events;
 
 		epoll_event.data.ptr = obj;
 
