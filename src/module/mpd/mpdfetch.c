@@ -112,8 +112,8 @@ get_curr_song(struct mpd_info * state)
 	int fd = state->mpd_fd;
     char buffer[1024];
 
+
     int bytereads = read(fd, buffer, sizeof(buffer));
-	printf("%d %s\n", bytereads, buffer);
 	if (bytereads <= 0) {
 		state->cmd = MPD_CMD_IDLE;
 		return;
@@ -158,11 +158,11 @@ handle_idle(struct wb_context * ctx, struct mpd_info * state)
     buffer[bytereads] = 0;
 
 	if (strncmp(buffer, "changed: player", 15) == 0) {
-		LOG_INFO("Current song triggered\n");
 		state->cmd = MPD_CMD_CURRSONG;
 		write(state->mpd_fd, "currentsong\n", 12);
 	} else {
 		write(state->mpd_fd, "idle\n", 5);
+		state->cmd = MPD_CMD_IDLE;
 	}
 
     return;
@@ -251,7 +251,6 @@ handle_mpd_event(struct wb_event * event, struct wb_context * ctx, void * data)
 	const struct wb_public_api * api = mod.api;
 	struct mpd_info * state = data;
 
-	LOG_INFO("Test MPD\n");
 	if (event->fd == state->mpd_fd) {
 		if (event->event & WB_EVENT_HUP) {
 			state->connected = 0;
@@ -289,7 +288,6 @@ int get_mpd_fd(struct wb_context * ctx){
     int intfd = inotify_init1(IN_CLOEXEC);
     if (inotify_add_watch(intfd, dirname(dir_path), IN_CREATE ) < 0)
         ON_ERR("Inotify - mpd")
-    
     return intfd;
 }
 

@@ -20,9 +20,12 @@ set_wpoll(struct module_context * mod_ctx,
 		struct wb_event_packet * packet = malloc(sizeof(struct wb_event_packet));
 		struct module_interface * interface = mod_ctx->interfaces[i];
 
+
 		packet->mod_int = interface;
-		packet->udata = mod_ctx->states[i];
 		int fd = interface->get_fd(ctx);
+		mod_ctx->states[i] = mod_ctx->interfaces[i]->set_up(ctx);
+		packet->udata = mod_ctx->states[i];
+
 		if (fd < 0)
 			ON_ERR("Invalid fd")
 
@@ -56,16 +59,6 @@ handle_events(struct module_context * mod_ctx, struct wb_poll_fort * fort,
 	}
 }
 
-static void
-module_setup(struct module_context * mod_ctx, struct wb_context * ctx)
-{
-	int mod_count = mod_ctx->module_count;
-	for (int i = 0; i < mod_count; i++){
-		mod_ctx->states[i] = mod_ctx->interfaces[i]->set_up(ctx);
-	}
-
-}
-
 void *
 mainpoll(void * data)
 {
@@ -84,7 +77,6 @@ mainpoll(void * data)
 
     set_wpoll(mod_ctx, ctx, fort);
 
-	module_setup(mod_ctx, ctx);
 	sem_post(sem);
 
     while (1) {

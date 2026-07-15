@@ -59,7 +59,6 @@ draw_text(struct wb_context * ctx, void * data)
 	struct power_state * state = data;
 	const struct wb_public_api * api = mod.api;
 
-	LOG_INFO("%s\n", mod.base_style->format);
 	api->mod->sub_text(mod.base_style->format, "bat", state->text,
 					&state->power_level, WB_MOD_INT, 64);
 

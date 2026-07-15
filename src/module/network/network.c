@@ -5,12 +5,19 @@
 #include "network.h"
 #include "macro.h"
 #include "module.h"
+#include "widget.h"
+#include "style.h"
 
-void get_network_sty(struct wb_style_sec * sec, struct wb_style_main * msty);
+void get_network_sty(struct wb_config_setting * set, struct wb_style_main * msty,
+				struct wb_style_base * base);
+
 int get_net_fd(struct wb_context * ctx);
-void net_set(struct wb_context * ctx);
-void network_get(struct wb_event * event, struct wb_context * ctx);
-void network_render(struct wb_render * render, struct wb_data * data);
+
+void * net_set(struct wb_context * ctx);
+
+void network_get(struct wb_event * event, struct wb_context * ctx, void * data);
+
+void network_render(struct wb_context * ctx, void * data);
 
 static struct nla_policy attr_policy[NL80211_ATTR_MAX + 1] = {
 	[NL80211_ATTR_SSID] = {}
@@ -20,12 +27,6 @@ static struct nla_policy bss_policy[NL80211_BSS_MAX + 1] = {
 	[NL80211_BSS_INFORMATION_ELEMENTS] = {}
 };
 
-static struct nl_state * nls = NULL;
-
-static struct conn_state conn = {
-	.connecting = 0,
-	.connected = 0
-};
 
 static struct module_interface mod = {
 	.module_name	= "network",
@@ -33,51 +34,74 @@ static struct module_interface mod = {
 	.get_fd			= get_net_fd,
 	.set_up			= net_set,
 	.handle_event	= network_get,
-	.handle_update	= network_render,
+	.emit_layout	= network_render,
 	.clean_up		= NULL
 };
 
-struct module_interface * mod_init(int id, struct wb_public_api * api){
-
-	/*
-	 * size check at compile time
-	 */
-	_Static_assert(sizeof(struct network_state) <= 
-					sizeof(((struct wb_data *)0)->str_val));
-	
-	printf("net id = %d\n", id);
-	mod.id = id;
-	mod.data = api;
+struct module_interface * mod_init(int id, struct wb_public_api * api)
+{
 	return &mod;
 }
 
-void network_render(struct wb_render * wrender, struct wb_data * data){
-	struct network_state state;
-	memcpy(&state, data->str_val, sizeof(struct network_state));
+static void
+draw_text(struct wb_context * ctx, void * data)
+{
+	const struct wb_public_api * api = mod.api;
+	struct network_state * state = data;
 
-	if (state.conn & NET_CONNECT){
-    	printf("Event Triggered network | Wifi Connected to  %s\n", state.ssid);
+	struct wb_widget_text_data text = api->widget->default_text(ctx);
+	if (state->cns->conn & NET_DISCONNECT) {
+		text.string = "Disconnected";
 	} else {
-    	printf("Event Triggered network | Wifi is Down\n");
+		char buffer[64];
+		api->mod->sub_text(mod.base_style->format, "ssid", buffer, state->cns->ssid,
+						WB_MOD_STRING, sizeof(buffer));
+		text.string = buffer;
 	}
+	LOG_INFO("%s\n", text.string);
+
+	api->widget->text(ctx, &text);
 }
 
-void get_network_sty(struct wb_style_sec * sec, struct wb_style_main * main_sty){
-	struct wb_public_api * api = mod.data;
-	struct network_style * net_sty = calloc(1, sizeof(struct network_style));
+const struct wb_widget_callback net_cb = {
 
-	api->style->get_base(&net_sty->base, sec, main_sty);
-	char * format = api->style->get_str(sec, "format");
+};
 
-	strncpy(net_sty->format, format, WB_STYLE_STR_SIZE_MAX);
-	mod.style = net_sty;
+void network_render(struct wb_context * ctx, void * data)
+{
+	const struct wb_public_api * api = mod.api;
+	struct network_state * state = data;
+
+	static int id = -1;
+	if (id < 0) {
+		id = api->widget->allocate_id(ctx);
+		api->widget->set_id(ctx, id, state, WB_POINTER_HOVER, &net_cb);
+	}
+
+	int events = api->widget->get_event(ctx, id);
+	struct wb_widget_rect_special rect = {
+		.rect = api->widget->default_rect(ctx, events)
+	};
+
+	rect.rect.child_cb = draw_text;
+	rect.rect.data = state;
+
+	api->widget->bind_id(ctx, id, &rect);
+	api->widget->rect_special(ctx, &rect);
+}
+
+void get_network_sty(struct wb_config_setting * set, struct wb_style_main * msty,
+				struct wb_style_base * base)
+{
+
 }
 
 static struct nl_msg * forge_trigger_msg(int ifid, int cmd, int flag){
+	struct network_state * state = mod.data;
 	struct nl_msg * msg = nlmsg_alloc();
 
 	genlmsg_put(msg, NL_AUTO_PORT, NL_AUTO_SEQ,
-				nls->family, 0, flag,
+				state->nls->family, 0, flag,
 				cmd, 0);
 	if (nla_put_u32(msg, NL80211_ATTR_IFINDEX, ifid) < 0){
 		ON_ERR("trigger msg forge - nl module")
@@ -86,8 +110,10 @@ static struct nl_msg * forge_trigger_msg(int ifid, int cmd, int flag){
 	return msg;
 }
 
-void network_get(struct wb_event * event, struct wb_context * ctx){
-	nl_recvmsgs_default(nls->sock);
+void network_get(struct wb_event * event, struct wb_context * ctx, void * data)
+{
+	struct network_state * state = mod.data;
+	nl_recvmsgs_default(state->nls->sock);
 }
 
 static int parse_ie_ssid(u16 len, u8 * start, u8 * data){
@@ -114,7 +140,8 @@ static int parse_ie_ssid(u16 len, u8 * start, u8 * data){
 
 static int nl_recv_msg_cb(struct nl_msg * msg, void * data){
 	struct wb_context * ctx = data;
-	struct wb_public_api * api = mod.data;
+	const struct wb_public_api * api = mod.api;
+	struct network_state * state = mod.data;
 
 	// this handle mlme group
 	struct nlmsghdr * nlh = nlmsg_hdr(msg);
@@ -129,10 +156,6 @@ static int nl_recv_msg_cb(struct nl_msg * msg, void * data){
 
 	genlmsg_parse(nlh, 0, attrs, NL80211_ATTR_MAX, attr_policy);
 
-	struct network_state network_data;
-	struct wb_data wbdata;
-	wbdata.id = mod.id;
-
 	if (attrs[NL80211_ATTR_REQ_IE]){
 		u8 ssid[IEEE80211_MAX_SSID_LEN + 1];
 
@@ -142,21 +165,16 @@ static int nl_recv_msg_cb(struct nl_msg * msg, void * data){
 		if (ssidlen < 0)
 				return NL_OK;
 
-		memcpy(network_data.ssid, ssid, sizeof(network_data.ssid));
-		network_data.conn = NET_CONNECT;
-		network_data.ssid[ssidlen] = 0;	
-		memcpy(wbdata.str_val, &network_data, sizeof(struct network_state));
-
-		api->mod->send_data(ctx, &wbdata);
-
+		memcpy(state->cns->ssid, ssid, IEEE80211_MAX_SSID_LEN);
+		state->cns->conn = NET_CONNECT;
+		state->cns->ssid[ssidlen] = 0;	
 	}
 	else {
-		network_data.conn = NET_DISCONNECT;
-		memcpy(wbdata.str_val, &network_data, sizeof(struct network_state));
-
-		api->mod->send_data(ctx, &wbdata);
+		state->cns->conn = NET_DISCONNECT;
+		state->cns->ssid[0] = 0;
 	}
 
+	api->mod->trigger_update(ctx);
 	return NL_OK;
 }
 
@@ -164,7 +182,8 @@ static int handle_scan(struct nl_msg * msg, void * data){
 	struct nlmsghdr * nlh = nlmsg_hdr(msg);
 	struct genlmsghdr * gnlh = genlmsg_hdr(nlh);
 
-	struct wb_public_api * api = mod.data;
+	const struct wb_public_api * api = mod.api;
+	struct network_state * state = mod.data;
 	struct wb_context * ctx = data;
 
 	struct nlattr * attr[NL80211_ATTR_MAX + 1];
@@ -182,10 +201,6 @@ static int handle_scan(struct nl_msg * msg, void * data){
 		goto bad_msg;
 	}
 
-	struct network_state network_data;
-	struct wb_data wbdata;
-	wbdata.id = mod.id;
-
 	if (bss[NL80211_BSS_INFORMATION_ELEMENTS]){
 		u8 ssid[IEEE80211_MAX_SSID_LEN + 1];
 		int ssid_len = parse_ie_ssid(nla_len(bss[NL80211_BSS_INFORMATION_ELEMENTS]),
@@ -193,18 +208,15 @@ static int handle_scan(struct nl_msg * msg, void * data){
 									 ssid);
 
 
-		if (memcmp(conn.bssid, nla_data(bss[NL80211_BSS_BSSID]), ETH_ALEN)){
+		if (memcmp(state->cns->bssid, nla_data(bss[NL80211_BSS_BSSID]), ETH_ALEN)){
 			goto bad_msg;
 		}
 
-		memcpy(network_data.ssid, ssid, sizeof(network_data.ssid));
-		network_data.conn = NET_CONNECT;
-		network_data.ssid[ssid_len] = 0;	
-		memcpy(wbdata.str_val, &network_data, sizeof(struct network_state));
-
-		api->mod->send_data(ctx, &wbdata);
+		memcpy(state->cns->ssid, ssid, IEEE80211_MAX_SSID_LEN);
+		state->cns->conn = NET_CONNECT;
+		state->cns->ssid[ssid_len] = 0;	
+		api->mod->trigger_update(ctx);
 	}
-
 
 	return NL_OK;
 
@@ -216,64 +228,60 @@ static int handle_station(struct nl_msg * msg, void * data){
 	struct nlmsghdr * nlh = nlmsg_hdr(msg);
 	struct genlmsghdr * gnlh = genlmsg_hdr(nlh);
 
+	const struct wb_public_api * api = mod.api;
+	struct network_state * state = mod.data;
+
 	struct nlattr * attrs[NL80211_ATTR_MAX + 1];
 
 	genlmsg_parse(nlh, 0, attrs, NL80211_ATTR_MAX, NULL);
 
-	struct nl_msg * rmsg = forge_trigger_msg(nls->ifid, 
+	struct nl_msg * rmsg = forge_trigger_msg(state->nls->ifid, 
 					NL80211_CMD_GET_SCAN, NLM_F_DUMP);
 
 
-	memcpy(conn.bssid, nla_data(attrs[NL80211_ATTR_MAC]), ETH_ALEN);
-	conn.connecting = 1;
+	memcpy(state->cns->bssid, nla_data(attrs[NL80211_ATTR_MAC]), ETH_ALEN);
+	state->cns->connecting = 1;
 
-	nl_send_auto(nls->sock, rmsg);
-	nl_recvmsgs_default(nls->sock);	
+	nl_send_auto(state->nls->sock, rmsg);
+	nl_recvmsgs_default(state->nls->sock);	
 	return NL_OK;
 }
 
 static int
 handle_interface(struct nl_msg * msg, void * data)
 {
-	struct wb_public_api * api = mod.data;
+	const struct wb_public_api * api = mod.api;
+	struct network_state * state = mod.data;
 	struct wb_context * ctx = data;
 
 	struct nlmsghdr * nlh = nlmsg_hdr(msg);
 	struct genlmsghdr * gnlh = genlmsg_hdr(nlh);
 
-	struct nl * attrs[NL80211_ATTR_MAX + 1];
-	struct nl * bss[NL80211_BSS_MAX + 1];
+	struct nlattr * attrs[NL80211_ATTR_MAX + 1];
+	struct nlattr * bss[NL80211_BSS_MAX + 1];
 
 	genlmsg_parse(nlh, 0, attrs, NL80211_ATTR_MAX, attr_policy);
 
 	if (attrs[NL80211_ATTR_CHANNEL_WIDTH]){
-			struct nl_msg * rmsg = forge_trigger_msg(nls->ifid,
+			struct nl_msg * rmsg = forge_trigger_msg(state->nls->ifid,
 									NL80211_CMD_GET_STATION, NLM_F_DUMP);
 
 			u8 bssid[ETH_ALEN];
 
-			memcpy(bssid, nla_data(attrs[NL80211_ATTR_MAC]), ETH_ALEN);
+			memcpy(state->cns->bssid, nla_data(attrs[NL80211_ATTR_MAC]), ETH_ALEN);
 
 			nla_put(rmsg, NL80211_ATTR_MAC,
 						ETH_ALEN,
-						bssid);
-			if (nla_put_u32(rmsg, NL80211_ATTR_IFINDEX, nls->ifid) < 0){
+						state->cns->bssid);
+			if (nla_put_u32(rmsg, NL80211_ATTR_IFINDEX, state->nls->ifid) < 0){
 				ON_ERR("trigger msg forge - nl module")
 			}
 
-			nl_send_auto(nls->sock, rmsg);
-			nl_recvmsgs_default(nls->sock);	
+			nl_send_auto(state->nls->sock, rmsg);
+			nl_recvmsgs_default(state->nls->sock);	
 	} 
 
 	else {
-		struct network_state network_data;
-		struct wb_data wbdata;
-		wbdata.id = mod.id;
-
-		network_data.conn = NET_DISCONNECT | NET_INIT;
-		memcpy(wbdata.str_val, &network_data, sizeof(struct network_state));
-
-		api->mod->send_data(ctx, &wbdata);
 	}
 }
 
@@ -291,16 +299,19 @@ static int nl_recv_valid_cb(struct nl_msg * msg, void * data){
 		return handle_station(msg, data);
 	}
 
-	else if (gnlh->cmd != NL80211_CMD_NEW_INTERFACE)
+	else if (gnlh->cmd == NL80211_CMD_NEW_INTERFACE)
 		return handle_interface(msg, data);
 
 	return NL_OK;
 }
 
 int get_net_fd(struct wb_context * ctx){
-	nls = malloc(sizeof(struct nl_state));
-	nls->sock = nl_socket_alloc();
+	struct network_state * state = malloc(sizeof(struct network_state));
+	struct nl_state * nls = malloc(sizeof(struct nl_state));
+	state->nls = nls;
+	mod.data = state;
 
+	nls->sock = nl_socket_alloc();
 	if (nls->sock == NULL)
 			ON_ERR("nl socket allocation failed")
 
@@ -337,7 +348,13 @@ int get_net_fd(struct wb_context * ctx){
 }
 
 
-void net_set(struct wb_context * ctx){
+void *
+net_set(struct wb_context * ctx)
+{
+	struct conn_state * cns = calloc(1, sizeof(struct conn_state));
+	struct network_state * state = mod.data;
+	struct nl_state * nls = state->nls;
+	state->cns = cns;
 
 	struct nl_msg * msg = NULL;
 
@@ -348,10 +365,9 @@ void net_set(struct wb_context * ctx){
 	}
 
 	nls->ifid = ifid;
-
 	msg = forge_trigger_msg(ifid, NL80211_CMD_GET_INTERFACE, NLM_F_DUMP);
+	nl_send_auto(state->nls->sock, msg);
 
-	nl_send_auto(nls->sock, msg);
-
+	return state;
 }
 

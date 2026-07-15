@@ -158,7 +158,6 @@ static int
 check_free_slot(int * frame_slot, int id)
 {
 	
-	LOG_INFO("id %d\n", id);
 	if (id >= WB_WIDGET_INTEREST_SIZE || id < 0) {
 		return -1;
 	}
@@ -182,7 +181,6 @@ wb_widget_listen_insert(struct wb_context * ctx, struct wb_widget_listen_node * 
 	if (check_free_slot(ilist->frame_slot, id) < 0) {
 		return -1;
 	}
-	LOG_INFO("WF_COUNT %d\n", ilist->wf_count);
 
 	ilist->frame_slot[id / WB_WIDGET_INT_BITS] |= (1 << (id & WB_WIDGET_INT_BITS));
 	ilist->wf_index[ilist->wf_count++] = id;
