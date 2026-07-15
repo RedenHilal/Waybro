@@ -11,26 +11,18 @@
 #include <linux/nl80211.h>
 #include <net/if.h>
 
-#include "wb-style-base.h"
-
 #define IEEE80211_MAX_SSID_LEN 32
 #define ETH_ALEN 6
 
 enum network_ev {
 	NET_CONNECT = 1,
-	NET_DISCONNECT,
+	NET_DISCONNECT = 2,
 	NET_INIT = 4
 };
 
-struct network_style {
-	struct wb_style_base base;
-	char format[WB_STYLE_STR_SIZE_MAX + 1];
-};
-
 struct network_state {
-	int conn;
-	int speed;
-	char ssid[IEEE80211_MAX_SSID_LEN + 1];
+	struct nl_state * nls;
+	struct conn_state * cns;
 };
 
 struct nl_state {
@@ -38,14 +30,18 @@ struct nl_state {
 	int family;
 	int group;
 	int ifid;
-
 	int pipe;
 };
 
 struct conn_state {
+	int conn;
+	int speed;
+
 	uint8_t bssid[ETH_ALEN];
 	uint8_t connecting;
 	uint8_t connected;
+
+	char ssid[IEEE80211_MAX_SSID_LEN + 1];
 };
 
 
@@ -59,7 +55,9 @@ enum ieee80211_eid {
 	WLAN_EID_TIM = 5,
 	WLAN_EID_IBSS_PARAMS = 6,
 	WLAN_EID_COUNTRY = 7,
-	/* 8, 9 reserved */
+	/*
+	 * 8, 9 reserved 
+	 */
 	WLAN_EID_REQUEST = 10,
 	WLAN_EID_QBSS_LOAD = 11,
 	WLAN_EID_EDCA_PARAM_SET = 12,
