@@ -126,8 +126,6 @@ wb_widget_print_widget(char * id, int index)
 	Clay_ElementData element = Clay_GetElementData(eid);
 	if (element.found){
 		Clay_BoundingBox bb = element.boundingBox;
-		printf("Found widget %s-%d | x:%f y:%f w:%f h:%f\n", id, index, bb.x, bb.y,
-						bb.width, bb.height);
 	}
 	else {
 		printf("Failed to find widget %s-%d\n", id, index);
