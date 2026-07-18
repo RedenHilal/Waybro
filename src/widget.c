@@ -17,25 +17,29 @@ wb_widget_allocate_id(struct wb_context * ctx)
 
 	struct wb_widget_listen_node * node;
 
-	node = malloc(sizeof(struct wb_widget_listen_node));
+	node = calloc(1, sizeof(struct wb_widget_listen_node));
 	if (node == NULL) {
+		LOG_CRIT("Ran out of memory");
+		exit(1);
 		return -1;
 	}
 
 	node->on_click = NULL;
 	node->on_scroll = NULL;
-	node->id = curr_id;
 	ctx->ilist->ncount++;
 
-	if (ctx->ilist->fs_count > 0) {
-		ctx->ilist->fs_count--;
+	if (ctx->ilist->fs_count > ctx->ilist->fs_index) {
 
-		int idx = ctx->ilist->fs_index++;
+		int idx = ctx->ilist->fs[ctx->ilist->fs_index++];
 		ctx->ilist->node[idx] = node;
-		return ctx->ilist->fs[idx];
+		node->id = idx;
+		LOG_INFO("Reused Id: %d\n", idx);
+		return idx;
 	}
 	else {
 		ctx->ilist->node[curr_id] = node;
+		node->id = curr_id;
+		LOG_INFO("Allocated Id: %d\n", curr_id);
 		return curr_id++;
 	}
 }
@@ -63,6 +67,7 @@ wb_widget_free_id(struct wb_context * ctx, int id)
 		return -1;
 	}
 
+	LOG_INFO("Freed Id: %d\n", id);
 	ctx->ilist->ncount--;
 	ctx->ilist->fs[ctx->ilist->fs_count++] = id;
 

@@ -18,7 +18,11 @@ void power_handle(struct wb_event * event, struct wb_context * ctx, void * state
 void handle_power(struct wb_context * ctx, void * state);
 
 struct power_style {
-	char * format;
+	char * format_full;
+	char * format_high;
+	char * format_low;
+	char * format_empty;
+	char * format_charge;
 };
 
 struct power_state {
@@ -28,9 +32,9 @@ struct power_state {
 	int charge_status;
 	char text[64];
 	char format[64];
+	sd_bus * bus;
 };
 
-sd_bus * gbus = NULL;
 
 struct module_interface mod = {		
 	.module_name	= "power",
@@ -42,6 +46,39 @@ struct module_interface mod = {
 	.clean_up		= NULL
 };
 
+static const struct config_dispatch dispatch[] = {
+	{
+		.field_name = "format_full",
+		.default_str = (const char *)"{bat}%",
+		.field_type = WB_STYLE_STRING,
+		.offset = offsetof(struct power_style, format_full)
+	},
+	{
+		.field_name = "format_high",
+		.default_str = (const char *)"{bat}%",
+		.field_type = WB_STYLE_STRING,
+		.offset = offsetof(struct power_style, format_high)
+	},
+	{
+		.field_name = "format_low",
+		.default_str = (const char *)"{bat}%",
+		.field_type = WB_STYLE_STRING,
+		.offset = offsetof(struct power_style, format_low)
+	},
+	{
+		.field_name = "format_empty",
+		.default_str = (const char *)"{bat}%",
+		.field_type = WB_STYLE_STRING,
+		.offset = offsetof(struct power_style, format_empty)
+	},
+	{
+		.field_name = "format_charge",
+		.default_str = (const char *)"{bat}%",
+		.field_type = WB_STYLE_STRING,
+		.offset = offsetof(struct power_style, format_charge)
+	}
+};
+
 struct module_interface * mod_init(){
 	return &mod;
 }
@@ -50,7 +87,32 @@ void
 get_power_sty(struct wb_config_setting * set, struct wb_style_main * msty,
 				struct wb_style_base * base)
 {
-	
+	const struct wb_public_api * api = mod.api;
+	struct power_style * style = malloc(sizeof(struct power_style));
+	if (style == NULL) {
+		LOG_CRIT("Out of memory");
+	}
+
+	int setting_length = sizeof(dispatch)/sizeof(dispatch[0]);
+	api->config->parse_config(dispatch, setting_length, style, set);
+	mod.custom_style = style;
+}
+
+static const char *
+get_format(struct power_state * state)
+{
+	const struct power_style * style = mod.custom_style;
+	if (state->charge_status) {
+		return style->format_charge;
+	} else if (state->power_level >= 75) {
+		return style->format_full;
+	} else if (state->power_level >= 50) {
+		return style->format_high;
+	} else if (state->power_level >= 10) {
+		return style->format_low;
+	} else {
+		return style->format_empty;
+	}
 }
 
 static void
@@ -59,7 +121,8 @@ draw_text(struct wb_context * ctx, void * data)
 	struct power_state * state = data;
 	const struct wb_public_api * api = mod.api;
 
-	api->mod->sub_text(mod.base_style->format, "bat", state->text,
+	const char * format = get_format(state);
+	api->mod->sub_text(format, "bat", state->text,
 					&state->power_level, WB_MOD_INT, 64);
 
 	struct wb_widget_text_data text = api->widget->default_text(ctx);
@@ -94,26 +157,11 @@ void handle_power(struct wb_context * ctx, void * data){
 	api->widget->rect_special(ctx, &rect);
 }
 
-void power_handle(struct wb_event * event, struct wb_context * ctx, void * state){
-	static sd_bus * bus = NULL;
+void power_handle(struct wb_event * event, struct wb_context * ctx, void * data){
 	const struct wb_public_api * api = mod.api;
+	struct power_state * state = data;
 
-	if(bus == NULL){
-		sd_bus_default_system(&bus);
-	}
-
-	while(sd_bus_process(bus, NULL) > 0);
-}
-
-void set_nonblock(int fd){
-    int flag = fcntl(fd, F_GETFL, 0);
-    if (flag < 0)
-        ON_ERR("fcntl - nonblock")
-
-    if (fcntl(fd, F_SETFL, flag | O_NONBLOCK) < 0)
-        ON_ERR("fcntl 2 - nonblock")
-
-    return;
+	while(sd_bus_process(state->bus, NULL) > 0);
 }
 
 int power_get(sd_bus_message * m, void * udata, sd_bus_error * ret_error){
@@ -169,40 +217,38 @@ int ac_get(sd_bus_message * m, void * udata, sd_bus_error * ret_error){
     return 0;
 }
 
-void handle_event(struct epoll_event * event){
-	if (gbus == NULL){
-		sd_bus_default(&gbus);
-	}
-
-	while(sd_bus_process(gbus, NULL) > 0);
-}
-
 void bat_set(sd_bus * bus, void * data){
 	sd_bus_slot * slot;
 
-	sd_bus_match_signal(bus,
+	int res = sd_bus_match_signal(bus,
 						&slot,
 						NULL,
 						"/org/freedesktop/UPower/devices/battery_BAT0",
-						NULL,
+						"org.freedesktop.DBus.Properties",
 						"PropertiesChanged",
 						power_get,
 						data);
 
+	if (res < 0) {
+		LOG_ERR("Match signal failed for BAT0\n");
+	}
 }
 
 void ac_set(sd_bus * bus, void * data){
 	sd_bus_slot * slot;
 
-	sd_bus_match_signal(bus,
+	int res = sd_bus_match_signal(bus,
 						&slot,
 						NULL,
 						"/org/freedesktop/UPower/devices/line_power_AC0",
-						NULL,
+						"org.freedesktop.DBus.Properties",
 						"PropertiesChanged",
 						ac_get,
 						data);
 
+	if (res < 0) {
+		LOG_ERR("Match signal failed for AC0\n");
+	}
 }
 
 /*
@@ -210,16 +256,14 @@ void ac_set(sd_bus * bus, void * data){
  * handle NULL state of modules
  */
 void * power_set(struct wb_context * ctx){
-	struct power_state * state = malloc(sizeof(struct power_state));
+	struct power_state * state = calloc(1, sizeof(struct power_state));
 	if (state == NULL)
 			return NULL;
 
 	state->ctx = ctx;
-
-	sd_bus * bus;
-	sd_bus_default_system(&bus);
-	bat_set(bus, state);
-	ac_set(bus, state);
+	state->bus = mod.data;
+	bat_set(state->bus, state);
+	ac_set(state->bus, state);
 
 	power_get(NULL, state, NULL);
 	ac_get(NULL, state, NULL);
@@ -230,6 +274,7 @@ void * power_set(struct wb_context * ctx){
 int get_power_fd(struct wb_context * ctx){
 	sd_bus * bus;
 	sd_bus_default_system(&bus);
+	mod.data = bus;
 
 	return sd_bus_get_fd(bus);
 }

@@ -42,6 +42,7 @@ struct conn_state {
 	uint8_t connected;
 
 	char ssid[IEEE80211_MAX_SSID_LEN + 1];
+	char text[64];
 };
 
 

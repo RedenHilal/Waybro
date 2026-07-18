@@ -75,17 +75,16 @@ wb_bar_group_parent_cb(struct wb_context * ctx, void * data)
 
 	struct wb_widget_rect_basic parent = {
 		.child_cb = wb_bar_group_cb,
-		.sizing_height = WB_WIDGET_GROW
+		.sizing_height = WB_WIDGET_GROW,
+		.radius = msty->radius
 	};
 
 	struct wb_widget_rect_basic group = {
 		.padding = {pad[0], pad[1], pad[2], pad[3]},
 		.child_cb = wb_bar_modules_cb,
-		.radius = msty->radius,
+		.radius = msty->radius ,
 		.sizing_height = WB_WIDGET_GROW,
 		.sizing_width = WB_WIDGET_FIT,
-		.width = {0},
-		.height = {0},
 		.direction = WB_WIDGET_LEFT_TO_RIGHT,
 		.fill_color = WB_COLOR_FROM_RGBA(msty->group_color),
 		.child_gap = msty->module_gap

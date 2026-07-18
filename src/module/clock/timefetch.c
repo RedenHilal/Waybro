@@ -51,7 +51,8 @@ draw_text(struct wb_context * ctx, void * udata)
 	struct clock_state * state = data->state;
 	const struct wb_public_api * api = mod.api;
 
-	char * fmt = state->mode? "%a | %m %B" : "%H:%M";
+	char * fmt = state->mode? "%a | %d %B" : "%H:%M | %d %B";
+	mktime(&state->time);
 	strftime(state->text, TEXT_MAX, fmt, &state->time);
 
 	struct wb_widget_text_data text = api->widget->default_text(data->ctx);
@@ -112,13 +113,12 @@ void time_get(struct wb_event * event, struct wb_context * ctx, void * data){
     read(event->fd, &trigger, sizeof(uint64_t));
 
 	state->time.tm_min += trigger;
-	mktime(&state->time);
 
 	api->mod->trigger_update(ctx);
 }
 
 int get_time_fd(struct wb_context * ctx){
-	struct clock_state * state = malloc(sizeof(struct clock_state));
+	struct clock_state * state = calloc(1, sizeof(struct clock_state));
 	mod.data = state;
     int timefd = timerfd_create(CLOCK_REALTIME, 0);
 
