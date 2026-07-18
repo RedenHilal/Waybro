@@ -53,12 +53,10 @@ draw_text(struct wb_context * ctx, void * data)
 	if (state->cns->conn & NET_DISCONNECT) {
 		text.string = "Disconnected";
 	} else {
-		char buffer[64];
-		api->mod->sub_text(mod.base_style->format, "ssid", buffer, state->cns->ssid,
-						WB_MOD_STRING, sizeof(buffer));
-		text.string = buffer;
+		api->mod->sub_text(mod.base_style->format, "ssid", state->cns->text,
+						state->cns->ssid, WB_MOD_STRING, 64);
+		text.string = state->cns->text;
 	}
-	LOG_INFO("%s\n", text.string);
 
 	api->widget->text(ctx, &text);
 }
@@ -116,7 +114,9 @@ void network_get(struct wb_event * event, struct wb_context * ctx, void * data)
 	nl_recvmsgs_default(state->nls->sock);
 }
 
-static int parse_ie_ssid(u16 len, u8 * start, u8 * data){
+static int
+parse_ie_ssid(u16 len, u8 * start, u8 * data)
+{
 	u16 pos = 0, adv = 0;
 	u8 * ieid, * iel, * ied;
 
@@ -138,7 +138,9 @@ static int parse_ie_ssid(u16 len, u8 * start, u8 * data){
 	return -1;
 }
 
-static int nl_recv_msg_cb(struct nl_msg * msg, void * data){
+static int
+nl_recv_msg_cb(struct nl_msg * msg, void * data)
+{
 	struct wb_context * ctx = data;
 	const struct wb_public_api * api = mod.api;
 	struct network_state * state = mod.data;
@@ -282,6 +284,7 @@ handle_interface(struct nl_msg * msg, void * data)
 	} 
 
 	else {
+		state->cns->conn = NET_DISCONNECT;
 	}
 }
 

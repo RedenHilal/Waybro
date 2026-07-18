@@ -161,7 +161,7 @@ void mem_handle(struct wb_event * event, struct wb_context * ctx, void * data){
 
 void * mem_get(struct wb_context * ctx){
     int mem_cap, mem_used, mem_free;
-	struct mem_state * state = malloc(sizeof(struct mem_state));
+	struct mem_state * state = calloc(1, sizeof(struct mem_state));
     int res = read_mem(state);
 
 	return state;
