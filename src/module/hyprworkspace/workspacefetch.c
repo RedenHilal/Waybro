@@ -9,17 +9,19 @@
 #include "module.h"
 #include "ulist.h"
 #include "macro.h"
+#include "style.h"
+#include "widget.h"
 
 #define WS_MAX_COUNT 64
 
-void parse_ws_sty(struct wb_style_sec * sec, struct wb_style_main * msty);
+void parse_ws_sty(struct wb_config_setting * set, struct wb_style_main * main,
+				struct wb_style_base * base);
 int get_workspace_fd(struct wb_context * ctx);
-void workspace_get(struct wb_event * event, struct wb_context * ctx);
-void get_workspace_data(struct wb_context * ctx);
-void ws_render(struct wb_render * render, void * state);
+void workspace_get(struct wb_event * event, struct wb_context * ctx, void * data);
+void * get_workspace_data(struct wb_context * ctx);
+void ws_render(struct wb_context * ctx, void * data);
 
 struct ws_style {
-    struct wb_style_base base;
     int max_ws;
     int radius;
     int h_color;
@@ -27,11 +29,12 @@ struct ws_style {
 
 struct ws_node {
 	int ws_id;
+	int widget_id;
+	char text[64];
 	struct ws_node * next, * prev;
 };
 
 struct ws_data {
-	struct wb_public_api * api;
 	struct ws_node * head;
 	int a_ws;
 };
@@ -46,16 +49,9 @@ static struct module_interface mod = {
 	.clean_up		= NULL
 };
 
-struct module_interface * mod_init(int id, struct wb_public_api * api){
-	printf("ws id = %d\n", id);
-	mod.id = id;
-
-	struct ws_data * wsdata = malloc(sizeof(struct ws_data));
-
-	mod.data = wsdata;
-	wsdata->api = api;
-	wsdata->head = NULL;
-
+struct module_interface *
+mod_init(int id, struct wb_public_api * api)
+{
 	return &mod;
 }
 
@@ -63,29 +59,104 @@ static int insert_cmp(void * ptr1, void * ptr2){
 	struct ws_node * node1 = ptr1;
 	struct ws_node * node2 = ptr2;
 
-	return node2->ws_id - node1->ws_id;
+	return node1->ws_id - node2->ws_id;
 }
 
-void ws_render(struct wb_render * wrender, struct wb_data * data){
-	struct ws_node * head = data->data;
-	int a_ws = data->int_val;
+static void
+handle_click(struct wb_context * ctx, void * data)
+{
+	struct ws_node * node = data;
 
-	printf("Event Triggered workspace | Active ws  = %d\n", a_ws);
+	pid_t pid = fork();
+	if (pid == 0) {
+		execl("/usr/bin/hyprctl", "hyprctl", "dispatch", "workspace", node->text, NULL);
+	} else if (pid < 0) {
+		LOG_ERR("error on executing hyprctl workspace: \n");
+	}
 }
 
-void parse_ws_sty(struct wb_style_sec * sec, struct wb_style_main * msty){
-	struct ws_data * wsdata = mod.data;
-	struct wb_public_api * api = wsdata->api;
+static const struct wb_widget_callback ws_cb = {
+	.on_click = handle_click
+};
 
+static void
+ws_node_render_text_cb(struct wb_context * ctx, void * data)
+{
+	const struct wb_public_api * api = mod.api;
+	struct ws_node * node = data;
+
+	struct wb_widget_text_data text = api->widget->default_text(ctx);
+	text.string = node->text;
+
+	api->widget->text(ctx, &text);
+}
+
+static void
+ws_node_render_cb(struct wb_context * ctx, void * data)
+{
+	const struct wb_public_api * api = mod.api;
+	struct ws_style * style = mod.custom_style;
+	struct ws_data * state = data;
+
+	struct ws_node * node = state->head;
+	struct wb_widget_rect_special rect;
+	while(node != NULL) {
+		if (node->widget_id < 0) {
+			node->widget_id = api->widget->allocate_id(ctx);
+			api->widget->set_id(ctx, node->widget_id, node,
+							WB_POINTER_HOVER | WB_POINTER_BUTTON, &ws_cb);
+		}
+
+		int event = api->widget->get_event(ctx, node->widget_id);
+		event &= ~WB_POINTER_BUTTON;
+
+		rect.rect = api->widget->default_rect(ctx, event);
+		rect.rect.child_cb = ws_node_render_text_cb;
+		rect.rect.data = node;
+
+		if (state->a_ws == node->ws_id) {
+			rect.rect.fill_color = (struct wb_widget_color)
+							WB_COLOR_FROM_RGBA(style->h_color);
+		}
+
+		api->widget->bind_id(ctx, node->widget_id, &rect);
+		api->widget->rect_special(ctx, &rect);
+		node = node->next;
+	}
+}
+
+void
+ws_render(struct wb_context * ctx, void * data)
+{
+	const struct wb_public_api * api = mod.api;
+	struct ws_data * state = data;
+	struct wb_widget_rect_basic rect = {
+		.child_cb = ws_node_render_cb,
+		.data = data,
+
+		.sizing_width = WB_WIDGET_FIT,
+		.sizing_height = WB_WIDGET_GROW
+	};
+
+	api->widget->rect(ctx, &rect);
+}
+
+void
+parse_ws_sty(struct wb_config_setting * set, struct wb_style_main * msty,
+				struct wb_style_base * base)
+{
 	struct ws_style * ws_sty = calloc(1, sizeof(struct ws_style));
-	mod.style = ws_sty;
 
-	api->style->get_base(&ws_sty->base, sec, msty);
+	int dim = (msty->module_active_color & 0xff) / 5;
+	ws_sty->h_color = msty->module_active_color - dim;
+	mod.custom_style = ws_sty;
 }
 
-void workspace_get(struct wb_event * event, struct wb_context * ctx){
-	struct ws_data * wsdata = mod.data;
-	struct wb_public_api * api = wsdata->api;
+void
+workspace_get(struct wb_event * event, struct wb_context * ctx, void * state)
+{
+	struct ws_data * wsdata = state;
+	const struct wb_public_api * api = mod.api;
     
 	const char * cmd_create = "createworkspace>>";
 	const char * cmd_destroy = "destroyworkspace>>";
@@ -100,9 +171,12 @@ void workspace_get(struct wb_event * event, struct wb_context * ctx){
         int created_workspace = atoi(iter + strlen(cmd_create));
 
 		struct ws_node * node = calloc(1, sizeof(struct ws_node));
+		node->widget_id = -1;
 		node->ws_id = created_workspace;
+		snprintf(node->text, 64, "%d", created_workspace);
         
 		DL_INSERT_INORDER(wsdata->head, node, insert_cmp);
+		api->mod->trigger_update(ctx);
     }
     else if ((iter = strstr(buffer, cmd_destroy)) ) {
         int destroyed_workspace = atoi(iter + strlen(cmd_destroy));
@@ -112,21 +186,17 @@ void workspace_get(struct wb_event * event, struct wb_context * ctx){
 		if (del_node == NULL)
 			return;
 		
+		api->widget->free_id(ctx, del_node->widget_id);
 		DL_DELETE(wsdata->head, del_node);
 		free(del_node);
+		api->mod->trigger_update(ctx);
     }
     else if((iter = strstr(buffer, cmd_ws))) {
         int workspace_now = atoi(iter + strlen(cmd_ws));
         wsdata->a_ws = workspace_now;
+		api->mod->trigger_update(ctx);
     }
 
-	struct wb_data data = {
-		.id = mod.id,
-		.int_val = wsdata->a_ws,
-		.data = wsdata->head
-	};
-
-	api->mod->send_data(ctx, &data);
 }
 
 int get_workspace_fd(struct wb_context * ctx){
@@ -161,16 +231,15 @@ static int get_active_ws(){
 	return atoi(iter);
 }
 
-void get_workspace_data(struct wb_context * ctx){
-	struct ws_data * wsdata = mod.data;
-	struct wb_public_api * api = wsdata->api;
+void * get_workspace_data(struct wb_context * ctx){
+	const struct wb_public_api * api = mod.api;
 
-    char buffer[4096];
+    char buffer[4096] = {0};
     int available_ws = 0;
 
-    wsdata->a_ws = get_active_ws();
-
-    memset(buffer, 0, sizeof(buffer));
+	struct ws_data * state = malloc(sizeof(struct ws_data));
+	state->head = NULL;
+    state->a_ws = get_active_ws();
 
     FILE * available_ws_fd = popen("hyprctl  workspaces","r");
     fread(buffer, 1, sizeof(buffer) - 1, available_ws_fd);
@@ -183,16 +252,13 @@ void get_workspace_data(struct wb_context * ctx){
 
 		struct ws_node * node = calloc(1, sizeof(struct ws_node));
 		node->ws_id = wsid;
-		DL_INSERT_INORDER(wsdata->head, node, insert_cmp);
+		snprintf(node->text, 64, "%d", wsid);
+		node->widget_id = -1;
+
+		DL_INSERT_INORDER(state->head, node, insert_cmp);
 		available_ws++;
     }
 
-	struct wb_data data = {
-		.id = mod.id,
-		.int_val = wsdata->a_ws,
-		.data = wsdata->head
-	};
-    
     pclose(available_ws_fd);
-	api->mod->send_data(ctx, &data);
+	return state;
 }
