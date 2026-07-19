@@ -9,7 +9,6 @@ target_link_libraries(network PRIVATE
 	PkgConfig::GENL
 )
 
-
 install(TARGETS network 
 		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/${APP_NAME}
 )

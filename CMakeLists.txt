@@ -6,16 +6,8 @@ set(APP_NAME "waybro")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/src/module")
 set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 
-execute_process(
-    COMMAND bash -c "../const.sh"
-    OUTPUT_VARIABLE BKL_FLAGS
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
-
-message(STATUS "BKL_FLAGS = ${BKL_FLAGS}")
-
 find_package(PkgConfig REQUIRED)
+
 pkg_check_modules(PANGO REQUIRED IMPORTED_TARGET pango)
 pkg_check_modules(PANGOCAIRO REQUIRED IMPORTED_TARGET pangocairo)
 pkg_check_modules(LIBCONFIG REQUIRED IMPORTED_TARGET libconfig)
@@ -44,12 +36,6 @@ target_compile_options(waybro PRIVATE
 
 target_link_options(waybro PRIVATE
 	$<$<CONFIG:Debug>:-O0 -g -fsanitize=undefined>
-)
-
-separate_arguments(BKL_FLAGS)
-
-add_compile_definitions(
-    ${BKL_FLAGS}
 )
 
 target_include_directories(waybro PRIVATE include)
@@ -81,4 +67,4 @@ add_subdirectory(src/module/)
 install(TARGETS waybro DESTINATION bin)
 
 set_target_properties(waybro PROPERTIES BUILD_RPATH "\$ORIGIN/src/module")
-set_target_properties(waybro PROPERTIES INSTALL_RPATH "$ORIGIN/module")
+set_target_properties(waybro PROPERTIES INSTALL_RPATH "$ORIGIN/../module/${APP_NAME}")

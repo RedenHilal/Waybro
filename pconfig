@@ -1,20 +1,75 @@
 general = 
 {
-	
+	group_color=0x01010178
+	fill_color=0x01010100
+
+	/*
+	 * tis is comment
+	 */
+	width=1920
+	height=30
+
+	fonts=["Comic Neue", "Callistoga"]
+	font_size=12
+	radius=15
+
+	group_gap=10
+
+	module_fill_color=0x01010178
+	module_hover_color=0x67647188
+	module_active_color=0x68717266
+
+	module_gap=3
+	module_radius=6
+	module_border_width=0
+	module_border_color=0x00000000
+	module_padding= [15, 15, 0, 0]
 }
 
 modules = 
 {
 	power = 
 	{
-		
+		group="right"
+
+		format_full="󱊣 {bat}%"
+		format_high="󱊢 {bat}%"
+		format_low="󱊡 {bat}%"
+		format_empty="󱊡 {bat}%"
+		format_charge="󰂄 {bat}%"
 	};
 	clock =
 	{
+		group="center"
 
 	};
 	memory =
 	{
 		interval = 3;
+		format=" {mem}%"
+		group="right"
 	};
+	pulseaudio =
+	{
+		format="󰕾 {vol}%"
+		group="right"
+	};
+	backlight = 
+	{
+		format="󰃠 {brightness}%"
+		group="right"
+	};
+	mpd = 
+	{
+		server_path="/home/ellen-chan/.config/mpd/socket/mpd.sock"
+	}
+	network = 
+	{
+		format="󰖩 {ssid}"
+		group="right"
+	}
+	hyprworkspace=
+	{
+		
+	}
 }
