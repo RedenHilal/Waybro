@@ -28,7 +28,8 @@ gen_cmake(){
     esac
 
     mkdir -p "$SRC_DIR/build/" && cd "$SRC_DIR/build";
-    cmake -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -DCMAKE_INSTALL_PREFIX="/usr/local" "$SRC_DIR";
+    cmake -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -DCMAKE_INSTALL_PREFIX="/usr/local" \
+			-DCMAKE_INSTALL_LIBDIR="/usr/local/module" "$SRC_DIR";
 
 }
 
