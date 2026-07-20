@@ -459,4 +459,5 @@ int setwayland(struct wb_appstate * appstate, struct wb_render * wrender,
     wl_display_roundtrip(appstate->display);
 
     return 0;
+
 }

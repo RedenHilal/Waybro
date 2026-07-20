@@ -101,6 +101,13 @@ wb_widget_hit_single_widget(struct wb_context * ctx, double x, double y, int eve
 		int widget_id = ilist->wf_index[i];
 		node = ilist->node[widget_id];
 
+		/*
+		 * handle hyprland release event on workspace change
+		 */
+		if (node == NULL) {
+			continue;
+		}
+
 		if (node->event_mask & event == 0) {
 			continue;
 		}
