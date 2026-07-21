@@ -166,7 +166,6 @@ workspace_get(struct wb_event * event, struct wb_context * ctx, void * state)
     char * iter;
 
     read(event->fd, buffer, sizeof(buffer));
-	LOG_INFO("hyprworkspace: %s END\n", buffer);
 
     if((iter = strstr(buffer, cmd_create))) {
         int created_workspace = atoi(iter + strlen(cmd_create));
