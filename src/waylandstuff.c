@@ -20,7 +20,7 @@ int alc_shm(uint64_t size){
     char name[8];
     name[0] = '/';
     name[7] = 0;
-    for (int i = 1;i<6;i++) name[i] = (rand() & 23) + 97;
+    for (int i = 1;i<=6;i++) name[i] = (rand() & 23) + 97;
 
     int fd = shm_open(name,O_RDWR | O_CREAT | O_EXCL, S_IWUSR |
 							S_IRUSR | S_IWOTH | S_IROTH);
@@ -459,4 +459,5 @@ int setwayland(struct wb_appstate * appstate, struct wb_render * wrender,
     wl_display_roundtrip(appstate->display);
 
     return 0;
+
 }

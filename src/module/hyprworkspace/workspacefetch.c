@@ -152,50 +152,57 @@ parse_ws_sty(struct wb_config_setting * set, struct wb_style_main * msty,
 	mod.custom_style = ws_sty;
 }
 
-void
-workspace_get(struct wb_event * event, struct wb_context * ctx, void * state)
+static void
+parse_line(const char * line, struct wb_context * ctx, struct ws_data * state)
 {
-	struct ws_data * wsdata = state;
 	const struct wb_public_api * api = mod.api;
-    
+
 	const char * cmd_create = "createworkspace>>";
 	const char * cmd_destroy = "destroyworkspace>>";
 	const char * cmd_ws = "workspace>>";
 
-    char buffer[1024] = {0};
-    char * iter;
-
-    read(event->fd, buffer, sizeof(buffer));
-
-    if((iter = strstr(buffer, cmd_create))) {
-        int created_workspace = atoi(iter + strlen(cmd_create));
-
+	if (strncmp(line, cmd_ws, strlen(cmd_ws)) == 0) {
+		int aws = atoi(line + strlen(cmd_ws));
+		state->a_ws = aws;
+		api->mod->trigger_update(ctx);
+	} else if (strncmp(line, cmd_create, strlen(cmd_create)) == 0) {
+		int cws = atoi(line + strlen(cmd_create));
 		struct ws_node * node = calloc(1, sizeof(struct ws_node));
 		node->widget_id = -1;
-		node->ws_id = created_workspace;
-		snprintf(node->text, 64, "%d", created_workspace);
-        
-		DL_INSERT_INORDER(wsdata->head, node, insert_cmp);
+		node->ws_id = cws;
+		snprintf(node->text, 64, "%d", cws);
+    	  
+		DL_INSERT_INORDER(state->head, node, insert_cmp);
 		api->mod->trigger_update(ctx);
-    }
-    else if ((iter = strstr(buffer, cmd_destroy)) ) {
-        int destroyed_workspace = atoi(iter + strlen(cmd_destroy));
+	} else if (strncmp(line, cmd_destroy, strlen(cmd_destroy)) == 0) {
+		int dws = atoi(line + strlen(cmd_destroy));
 		struct ws_node * del_node = NULL;
 
-		DL_SEARCH_SCALAR(wsdata->head, del_node, ws_id, destroyed_workspace);
+		DL_SEARCH_SCALAR(state->head, del_node, ws_id, dws);
 		if (del_node == NULL)
 			return;
 		
 		api->widget->free_id(ctx, del_node->widget_id);
-		DL_DELETE(wsdata->head, del_node);
+		DL_DELETE(state->head, del_node);
 		free(del_node);
 		api->mod->trigger_update(ctx);
-    }
-    else if((iter = strstr(buffer, cmd_ws))) {
-        int workspace_now = atoi(iter + strlen(cmd_ws));
-        wsdata->a_ws = workspace_now;
-		api->mod->trigger_update(ctx);
-    }
+	}
+}
+
+void
+workspace_get(struct wb_event * event, struct wb_context * ctx, void * state)
+{
+	struct ws_data * wsdata = state;
+    char buffer[1024] = {0};
+    char * iter;
+
+    read(event->fd, buffer, sizeof(buffer));
+	iter = strtok(buffer, "\n");
+	parse_line(iter, ctx, state);
+
+	while (iter = strtok(NULL, "\n")) {
+		parse_line(iter, ctx, state);
+	};
 
 }
 
