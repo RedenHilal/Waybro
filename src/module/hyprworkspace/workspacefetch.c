@@ -166,6 +166,7 @@ workspace_get(struct wb_event * event, struct wb_context * ctx, void * state)
     char * iter;
 
     read(event->fd, buffer, sizeof(buffer));
+	LOG_INFO("hyprworkspace: %s END\n", buffer);
 
     if((iter = strstr(buffer, cmd_create))) {
         int created_workspace = atoi(iter + strlen(cmd_create));
@@ -178,7 +179,7 @@ workspace_get(struct wb_event * event, struct wb_context * ctx, void * state)
 		DL_INSERT_INORDER(wsdata->head, node, insert_cmp);
 		api->mod->trigger_update(ctx);
     }
-    else if ((iter = strstr(buffer, cmd_destroy)) ) {
+    if ((iter = strstr(buffer, cmd_destroy)) ) {
         int destroyed_workspace = atoi(iter + strlen(cmd_destroy));
 		struct ws_node * del_node = NULL;
 
@@ -191,7 +192,7 @@ workspace_get(struct wb_event * event, struct wb_context * ctx, void * state)
 		free(del_node);
 		api->mod->trigger_update(ctx);
     }
-    else if((iter = strstr(buffer, cmd_ws))) {
+    if((iter = strstr(buffer, cmd_ws))) {
         int workspace_now = atoi(iter + strlen(cmd_ws));
         wsdata->a_ws = workspace_now;
 		api->mod->trigger_update(ctx);
