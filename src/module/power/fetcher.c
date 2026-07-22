@@ -191,7 +191,6 @@ int power_get(sd_bus_message * m, void * udata, sd_bus_error * ret_error){
 }
 
 int ac_get(sd_bus_message * m, void * udata, sd_bus_error * ret_error){
-	printf("charge triggered\n");
 	struct power_state * state = udata;
 	const struct wb_public_api * api = mod.api;
 	static int file_fd = 0;
@@ -218,10 +217,9 @@ int ac_get(sd_bus_message * m, void * udata, sd_bus_error * ret_error){
 }
 
 void bat_set(sd_bus * bus, void * data){
-	sd_bus_slot * slot;
 
 	int res = sd_bus_match_signal(bus,
-						&slot,
+						NULL,
 						NULL,
 						"/org/freedesktop/UPower/devices/battery_BAT0",
 						"org.freedesktop.DBus.Properties",
@@ -235,10 +233,9 @@ void bat_set(sd_bus * bus, void * data){
 }
 
 void ac_set(sd_bus * bus, void * data){
-	sd_bus_slot * slot;
 
 	int res = sd_bus_match_signal(bus,
-						&slot,
+						NULL,
 						NULL,
 						"/org/freedesktop/UPower/devices/line_power_AC0",
 						"org.freedesktop.DBus.Properties",
