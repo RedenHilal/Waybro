@@ -62,6 +62,7 @@ modules =
 	mpd = 
 	{
 		server_path="/home/ellen-chan/.config/mpd/socket/mpd.sock"
+		format="{title} - {artist} - {album}"
 	}
 	network = 
 	{
