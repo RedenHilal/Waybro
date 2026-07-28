@@ -82,7 +82,7 @@ wb_bar_group_parent_cb(struct wb_context * ctx, void * data)
 	struct wb_widget_rect_basic group = {
 		.padding = {pad[0], pad[1], pad[2], pad[3]},
 		.child_cb = wb_bar_modules_cb,
-		.radius = msty->radius ,
+		.radius = msty->group_radius ,
 		.sizing_height = WB_WIDGET_GROW,
 		.sizing_width = WB_WIDGET_FIT,
 		.direction = WB_WIDGET_LEFT_TO_RIGHT,

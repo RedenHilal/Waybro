@@ -43,7 +43,7 @@ make
 sudo make install
 
 mkdir -p "$CONFIG_DIR";
-cp "$SRC_DIR/pconfig" "$CONFIG_DIR/";
+cp --update=older "$SRC_DIR/pconfig" "$CONFIG_DIR/";
 
 echo "Done"
 

@@ -7,7 +7,7 @@
 #include <sys/un.h>
 
 #include "module.h"
-#include "ulist.h"
+#include "utlist.h"
 #include "macro.h"
 #include "style.h"
 #include "widget.h"

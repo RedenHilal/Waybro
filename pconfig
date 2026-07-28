@@ -11,7 +11,7 @@ general =
 
 	fonts=["Comic Neue", "Callistoga"]
 	font_size=12
-	radius=15
+	radius=0
 
 	group_gap=10
 
@@ -20,7 +20,7 @@ general =
 	module_active_color=0x68717266
 
 	module_gap=3
-	module_radius=6
+	module_radius=15
 	module_border_width=0
 	module_border_color=0x00000000
 	module_padding= [15, 15, 0, 0]
@@ -62,6 +62,7 @@ modules =
 	mpd = 
 	{
 		server_path="/home/ellen-chan/.config/mpd/socket/mpd.sock"
+		format="{title} - {artist} - {album}"
 	}
 	network = 
 	{
@@ -71,5 +72,10 @@ modules =
 	hyprworkspace=
 	{
 		
+	}
+	bluetooth=
+	{
+		format="󰂯 {count}"
+		group="right"
 	}
 }

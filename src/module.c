@@ -93,25 +93,31 @@ wb_mod_sub_text(const char * format, const char * label, char * result,
 		return -1;
 	}
 
+	char head_temp[512];
+	char tail_temp[512];
+
 	long offset = (long)found - (long)format;
 	int resume = offset + label_length + 2;
 
+	strncpy(head_temp, format, offset);
+	strncpy(tail_temp, format + resume, length);
+
 	switch(type) {
 		case WB_MOD_INT:
-			snprintf(result, length, "%.*s%d%s", offset, format,
-							*(int *)target, format + resume);
+			snprintf(result, length, "%.*s%d%s", offset, head_temp,
+							*(int *)target, tail_temp);
 			break;
 		case WB_MOD_LL:
-			snprintf(result, length, "%.*s%lld%s", offset, format,
-							*(long long int *)target, format + resume);
+			snprintf(result, length, "%.*s%lld%s", offset, head_temp,
+							*(long long int *)target, tail_temp);
 			break;
 		case WB_MOD_FLOAT:
-			snprintf(result, length, "%.*s%f%s", offset, format,
-							*(double *)target, format + resume);
+			snprintf(result, length, "%.*s%f%s", offset, head_temp,
+							*(double *)target, tail_temp);
 			break;
 		case WB_MOD_STRING:
-			snprintf(result, length, "%.*s%s%s", offset, format,
-							(char *) target, format + resume);
+			snprintf(result, length, "%.*s%s%s", offset, head_temp,
+							(char *) target, tail_temp);
 			break;
 		default:
 	}

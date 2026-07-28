@@ -220,7 +220,7 @@ wb_widget_get_default_rect(struct wb_context * ctx, int event)
 		.sizing_width = WB_WIDGET_FIT,
 		.fill_color = WB_COLOR_FROM_RGBA(fill_color),
 		.layout_y = WB_WIDGET_CENTER,
-		.radius = msty->radius,
+		.radius = msty->module_radius,
 		.padding = {pad[0], pad[1], pad[2], pad[3]},
 		.border_width = {bw[0], bw[1], bw[2], bw[3]},
 		.border_color = WB_COLOR_FROM_RGBA(msty->module_border_color)

@@ -43,28 +43,64 @@ mod_init()
 	return &mod;
 }
 
+static int
+find_starting_utf(char * string, int n)
+{
+    while(n > 0 && (string[n] & 0xc0) == 0x80){
+        n--;
+    }
+    return n;
+}
+
+static void
+sub_format(struct mpd_info * state)
+{
+	const struct wb_public_api * api = mod.api;
+
+	api->mod->sub_text(mod.base_style->format, "title", state->text,
+					state->title, WB_MOD_STRING, MPD_SONG_METADATA_LENGTH);
+
+	api->mod->sub_text(state->text, "artist", state->text,
+					state->artist, WB_MOD_STRING, MPD_SONG_METADATA_LENGTH);
+
+	api->mod->sub_text(state->text, "album", state->text,
+					state->album, WB_MOD_STRING, MPD_SONG_METADATA_LENGTH);
+
+	/*
+	 * [63] holds the '\0', hence we check length to MPD_SONG_METADATA_LENGTH - 1
+	 * which equal to 63 or [62]
+	 */
+	int length = strlen(state->text);
+	if (length >= (MPD_SONG_METADATA_LENGTH - 1)) {
+		int valid_cut = find_starting_utf(state->text,
+						MPD_SONG_METADATA_LENGTH - 2);
+		state->text[valid_cut] = 0;
+	}
+}
+
 static void
 draw_text(struct wb_context * ctx, void * data)
 {
 	const struct wb_public_api * api = mod.api;
 	struct mpd_info * state = data;
 
+	sub_format(state);
 	struct wb_widget_text_data text = api->widget->default_text(ctx);
-	if (state->connected) {
-		text.string = state->curr_song;
-	} else {
-		text.string = "MPD down";
-	}
-
+	text.string = state->text;
 	api->widget->text(ctx, &text);
 }
 
 void
 mpd_render(struct wb_context * ctx, void * data)
 {
+
 	const struct wb_public_api * api = mod.api;
 	struct mpd_info * state = data;
 	static int id = -1;
+
+	if (!state->connected) {
+		return;
+	}
 	
 	if (id < 0) {
 		id = api->widget->allocate_id(ctx);
@@ -96,13 +132,36 @@ parse_mpd_sty(struct wb_config_setting * set, struct wb_style_main * msty,
 	mod.custom_style = setting;
 }
 
-static int
-find_starting_utf(char * string, int n)
+static void
+parse_curr_song(char * buffer, struct mpd_info * state)
 {
-    while(n > 0 && (string[n] & 0xc0) == 0x80){
-        n--;
-    }
-    return n;
+	/*
+	 * parse the last key first since we'll put null terminator
+	 */
+	const struct metadata_table mdtable[] = {
+		{.key = "Album: ", .data = state->album},
+		{.key = "Title: ", .data = state->title},
+		{.key = "Artist: ", .data = state->artist}
+	};
+
+	const int length = sizeof(mdtable)/sizeof(mdtable[0]);
+
+	for (int i = 0; i < length; i++) {
+
+		char * start = strstr(buffer, mdtable[i].key);
+
+		if (!start) {
+			strncpy(mdtable[i].data, "Unknown", MPD_SONG_METADATA_LENGTH);
+			return;
+		} 
+
+		start += strlen(mdtable[i].key);
+		char * val_end = strchr(start, '\n');
+		*val_end = 0;
+
+		char * res = strncpy(mdtable[i].data, start, MPD_SONG_METADATA_LENGTH);
+		long length = (long)res - (long)mdtable[i].data;
+	}
 }
 
 static void
@@ -118,32 +177,9 @@ get_curr_song(struct mpd_info * state)
 		state->cmd = MPD_CMD_IDLE;
 		return;
 	};
+
     buffer[bytereads] = 0;
-
-    char * title = strstr(buffer, "Title: ");
-    char * artist = strstr(buffer, "Artist: ");
-
-    if(!title || !artist) {
-        snprintf(write_buffer, MPD_SONG_MAX_LENGTH, "Unknown");
-    }
-    else {
-        title +=7;
-        artist += 8;
-
-        char * title_end = strchr(title, '\n');
-       char * artist_end = strchr(artist,'\n');
-        
-        if(title_end) *title_end = 0;
-        if(artist_end) *artist_end = 0;
-        
-        int byte_printed = snprintf(write_buffer, MPD_SONG_MAX_LENGTH,
-						"%s - %s", title, artist);
-        
-        if(byte_printed >= MPD_SONG_MAX_LENGTH){
-            int valid_cut = find_starting_utf(write_buffer, MPD_SONG_MAX_LENGTH - 1);
-			write_buffer[valid_cut] = 0;
-        }
-    }
+	parse_curr_song(buffer, state);
 
 	write(fd, "idle\n", 5);
 }

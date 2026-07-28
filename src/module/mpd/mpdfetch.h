@@ -1,4 +1,5 @@
 #define MPD_SONG_MAX_LENGTH 256
+#define MPD_SONG_METADATA_LENGTH 64
 
 enum mpd_next_command {
 	MPD_CMD_IDLE,
@@ -6,6 +7,11 @@ enum mpd_next_command {
 };
 
 struct mpd_info {
+	char title[MPD_SONG_METADATA_LENGTH];
+	char artist[MPD_SONG_METADATA_LENGTH];
+	char album[MPD_SONG_METADATA_LENGTH];
+
+	char text[MPD_SONG_MAX_LENGTH];
 	char curr_song[MPD_SONG_MAX_LENGTH];
 	struct wb_poll_handle * handle;
 
@@ -18,6 +24,11 @@ struct mpd_info {
 
 struct mpd_setting {
 	char * server_path;
+};
+
+struct metadata_table {
+	const char * key;
+	char * data;
 };
 
 void
