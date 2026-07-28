@@ -43,6 +43,15 @@ mod_init()
 	return &mod;
 }
 
+static int
+find_starting_utf(char * string, int n)
+{
+    while(n > 0 && (string[n] & 0xc0) == 0x80){
+        n--;
+    }
+    return n;
+}
+
 static void
 sub_format(struct mpd_info * state)
 {
@@ -56,6 +65,17 @@ sub_format(struct mpd_info * state)
 
 	api->mod->sub_text(state->text, "album", state->text,
 					state->album, WB_MOD_STRING, MPD_SONG_METADATA_LENGTH);
+
+	/*
+	 * [63] holds the '\0', hence we check length to MPD_SONG_METADATA_LENGTH - 1
+	 * which equal to 63 or [62]
+	 */
+	int length = strlen(state->text);
+	if (length >= (MPD_SONG_METADATA_LENGTH - 1)) {
+		int valid_cut = find_starting_utf(state->text,
+						MPD_SONG_METADATA_LENGTH - 2);
+		state->text[valid_cut] = 0;
+	}
 }
 
 static void
@@ -112,15 +132,6 @@ parse_mpd_sty(struct wb_config_setting * set, struct wb_style_main * msty,
 	mod.custom_style = setting;
 }
 
-static int
-find_starting_utf(char * string, int n)
-{
-    while(n > 0 && (string[n] & 0xc0) == 0x80){
-        n--;
-    }
-    return n;
-}
-
 static void
 parse_curr_song(char * buffer, struct mpd_info * state)
 {
@@ -150,11 +161,6 @@ parse_curr_song(char * buffer, struct mpd_info * state)
 
 		char * res = strncpy(mdtable[i].data, start, MPD_SONG_METADATA_LENGTH);
 		long length = (long)res - (long)mdtable[i].data;
-		if (length >= MPD_SONG_METADATA_LENGTH) {
-			int valid_cut = find_starting_utf(mdtable[i].data,
-							MPD_SONG_METADATA_LENGTH - 1);
-			mdtable[i].data[valid_cut] = 0;
-		}
 	}
 }
 
