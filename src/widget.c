@@ -24,8 +24,6 @@ wb_widget_allocate_id(struct wb_context * ctx)
 		return -1;
 	}
 
-	node->on_click = NULL;
-	node->on_scroll = NULL;
 	ctx->ilist->ncount++;
 
 	if (ctx->ilist->fs_count > ctx->ilist->fs_index) {
@@ -133,6 +131,9 @@ wb_widget_hit_multiple_widget(struct wb_context * ctx, double x, double y, int e
 	for (int i = widget_count; i >= 0; i--) {
 		int widget_id = ilist->wf_index[i];
 		node = ilist->node[widget_id];
+		if (node == NULL) {
+			return 0;
+		}
 
 		if (node->event_mask & event == 0) {
 			continue;
