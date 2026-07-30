@@ -89,7 +89,6 @@ sdbus::Variant BlueZState::getDeviceProperty(const std::string& path, const std:
 
 void BlueZState::getAdapterProperties(const PropertyMap& properties) {
 	for (auto it = properties.begin(); it != properties.end(); it++) {
-		std::cout << it->first << std::endl;
 		if (it->first == "Alias") {
 			this->alias_ = it->second.get<std::string>();
 		} else if (it->first == "Address") {
@@ -103,7 +102,6 @@ void BlueZState::getAdapterProperties(const PropertyMap& properties) {
 void BlueZState::getDeviceProperties(const PropertyMap& properties, BlueZState::BlueZDevice& dev) {
 
 	for (auto it = properties.begin(); it != properties.end(); it++) {
-			std::cout << it->first << std::endl;
 		if (it->first == "Alias") {
 			dev.alias = it->second.get<std::string>();
 		} else if (it->first == "Address") {
