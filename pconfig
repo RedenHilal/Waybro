@@ -61,7 +61,14 @@ modules =
 	};
 	mpd = 
 	{
-		server_path="/home/ellen-chan/.config/mpd/socket/mpd.sock"
+		/* 
+		 * for tcp server
+		 * server_path="localhost:6600" 
+		 * 
+		 * reconnect_interval only apply to tcp type connections
+		 * reconnect_interval=10
+		 */
+		server_path="~/.config/mpd/socket/mpd.sock"
 		format="{title} - {artist} - {album}"
 	}
 	network = 
