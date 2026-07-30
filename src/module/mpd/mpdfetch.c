@@ -11,8 +11,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <sys/un.h>
 #include <sys/inotify.h>
+#include <sys/timerfd.h>
+#include <netdb.h>
 
 static struct module_interface mod = {
 	.module_name	= "mpd",
@@ -27,9 +30,15 @@ static struct module_interface mod = {
 static const struct config_dispatch dispatch[] = {
 	{
 		.field_name = "server_path",
-		.default_str = (const char *)"~/.config/mpd/socket",
+		.default_str = (const char *)"localhost:6600",
 		.field_type = WB_STYLE_STRING,
-		.offset = offsetof(struct mpd_setting, server_path)
+		.offset = offsetof(struct mpd_setting, server_addr)
+	},
+	{
+		.field_name = "reconnect_interval",
+		.default_int = 10,
+		.field_type = WB_STYLE_INT,
+		.offset = offsetof(struct mpd_setting, recon_itval)
 	}
 };
 
@@ -70,7 +79,7 @@ sub_format(struct mpd_info * state)
 	 * [63] holds the '\0', hence we check length to MPD_SONG_METADATA_LENGTH - 1
 	 * which equal to 63 or [62]
 	 */
-	int length = strlen(state->text);
+int length = strlen(state->text);
 	if (length >= (MPD_SONG_METADATA_LENGTH - 1)) {
 		int valid_cut = find_starting_utf(state->text,
 						MPD_SONG_METADATA_LENGTH - 2);
@@ -119,6 +128,41 @@ mpd_render(struct wb_context * ctx, void * data)
 	api->widget->rect_special(ctx, &rect);
 }
 
+int
+get_address_type(const char * address)
+{	
+	/* tcp type address */
+	if (strchr(address, ':')) {
+		return MPD_ADDRESS_TCP_SOCKET;
+	}
+	/* unix socket address */
+	else {
+		return MPD_ADDRESS_UNIX_SOCKET;
+	}
+}
+
+static void
+parse_unix_path(struct mpd_setting * setting)
+{
+	if (setting->server_addr[0] == '~') {
+		snprintf(setting->unix_domain.path, MPD_SK_PATH_MAX_LENGTH, "%s%s",
+						getenv("HOME"), setting->server_addr + 1);
+	} else {
+		snprintf(setting->unix_domain.path, MPD_SK_PATH_MAX_LENGTH, "%s",
+						setting->server_addr);
+	}
+}
+
+static void
+parse_tcp_addr(struct mpd_setting * setting)
+{
+	const char * port = strchr(setting->server_addr, ':') + 1;
+	int addr_length = (long)port - 1 - (long)setting->server_addr;
+	
+	strncpy(setting->tcp.addr, setting->server_addr, addr_length);
+	strncpy(setting->tcp.port, port, MPD_PORT_MAX_LENGTH);
+}
+
 void
 parse_mpd_sty(struct wb_config_setting * set, struct wb_style_main * msty,
 				struct wb_style_base * base)
@@ -128,6 +172,13 @@ parse_mpd_sty(struct wb_config_setting * set, struct wb_style_main * msty,
 
 	int setting_length = sizeof(dispatch)/sizeof(dispatch[0]);
 	api->config->parse_config(dispatch, setting_length, setting, set);
+
+	setting->addr_type = get_address_type(setting->server_addr);
+	if (setting->addr_type == MPD_ADDRESS_TCP_SOCKET) {
+		parse_tcp_addr(setting);
+	} else {
+		parse_unix_path(setting);
+	}
 
 	mod.custom_style = setting;
 }
@@ -181,7 +232,10 @@ get_curr_song(struct mpd_info * state)
     buffer[bytereads] = 0;
 	parse_curr_song(buffer, state);
 
-	write(fd, "idle\n", 5);
+	int res = write(fd, "idle\n", 5);
+	if (res < 0) {
+		LOG_ERR("Error on writing querying current song\n");
+	}
 }
 
 void
@@ -215,7 +269,7 @@ mpd_sock_clean_up(struct wb_event * event, struct wb_context * ctx)
 }
 
 static int
-connect_socket(struct wb_context * ctx, struct mpd_info * state)
+connect_unix_socket(struct wb_context * ctx, struct mpd_info * state)
 {
 	struct mpd_setting * setting = mod.custom_style;
 	struct sockaddr_un sock_addr;
@@ -226,7 +280,7 @@ connect_socket(struct wb_context * ctx, struct mpd_info * state)
 	}
 
 	sock_addr.sun_family = AF_UNIX;
-	strncpy(sock_addr.sun_path, setting->server_path, sizeof(sock_addr.sun_path) - 1);
+	strncpy(sock_addr.sun_path, setting->unix_domain.path, sizeof(sock_addr.sun_path) - 1);
 
 	int res = connect(socket_fd, (struct sockaddr*)&sock_addr, sizeof(sock_addr));
 	if (res < 0) {
@@ -237,19 +291,63 @@ connect_socket(struct wb_context * ctx, struct mpd_info * state)
 	return socket_fd;
 }
 
+static int
+connect_tcp_socket(struct wb_context * ctx, struct mpd_info * state)
+{
+	struct mpd_setting * setting = mod.custom_style;
+	struct addrinfo * res;
+	struct addrinfo hints = {
+		.ai_family = AF_UNSPEC,
+		.ai_socktype = SOCK_STREAM
+	};
+
+	int resp = getaddrinfo(setting->tcp.addr, setting->tcp.port,
+					&hints, &res);
+	if (resp != 0) {
+		perror("what\n");
+		LOG_INFO("No connection found\n");
+		return -1;
+	}
+
+	LOG_INFO("AF_INET = %d, AF_INET6 = %d, ai_family = %d\n", AF_INET, AF_INET6, res->ai_family);
+
+	int socket_fd = socket(res->ai_family, SOCK_STREAM, 0);
+	if (socket_fd < 0) {
+		LOG_ERR("Failed to create tcp socket");
+		return -1;
+	}
+	resp = connect(socket_fd, res->ai_addr, res->ai_addrlen);
+	if (connect < 0) {
+		LOG_INFO("Failed to connect to tcp mpd\n");
+		close(socket_fd);
+		return -1;
+	}
+	LOG_INFO("Connected to tcp socket\n");
+
+	return socket_fd;
+}
+
 static void
 start_socket(struct wb_context * ctx, struct mpd_info * state)
 {
+	struct mpd_setting * setting = mod.custom_style;
 	char buffer[512];
 	const struct wb_public_api * api = mod.api;
-	int socket_fd = connect_socket(ctx, state);
+	int socket_fd;
+
+	if (setting->addr_type == MPD_ADDRESS_TCP_SOCKET) {
+		socket_fd = connect_tcp_socket(ctx, state);
+	} else {
+		socket_fd = connect_unix_socket(ctx, state);
+	}
+
 	if (socket_fd < 0) {
 		state->connected = 0;
 		return;
 	}
 
 	struct wb_poll_handle * handle = api->mod->reg_sub(ctx, socket_fd,
-					WB_EVENT_READ | WB_EVENT_HUP, state, mod.id);
+					WB_EVENT_READ | WB_EVENT_HUP | WB_EVENT_RDHUP, state, mod.id);
 
 	read(socket_fd, buffer, sizeof(buffer));
 	write(socket_fd, "currentsong\n", 12);
@@ -263,34 +361,37 @@ start_socket(struct wb_context * ctx, struct mpd_info * state)
 void *
 mpd_get(struct wb_context * ctx)
 {
+	const struct mpd_setting * setting = mod.custom_style;
 	const struct wb_public_api * api = mod.api;
     struct sockaddr_un sock_addr;
 	struct mpd_info * state = malloc(sizeof(struct mpd_info));
+
 	if (state == NULL) {
 		return NULL;
 	}
-
 	start_socket(ctx, state);
 
     return state;
 }
 
 static void
-handle_sockethup(struct wb_event * event, struct wb_context * ctx)
+handle_sockethup(struct wb_event * event, struct wb_context * ctx,
+				struct mpd_info * state)
 {
 	mpd_sock_clean_up(event, ctx);
+	state->connected = 0;
 }
 
 void
 handle_mpd_event(struct wb_event * event, struct wb_context * ctx, void * data)
 {
+	const struct mpd_setting * setting = mod.custom_style;
 	const struct wb_public_api * api = mod.api;
 	struct mpd_info * state = data;
 
 	if (event->fd == state->mpd_fd) {
-		if (event->event & WB_EVENT_HUP) {
-			state->connected = 0;
-			handle_sockethup(event, ctx);
+		if (event->event & (WB_EVENT_HUP | WB_EVENT_RDHUP)) {
+			handle_sockethup(event, ctx, state);
 		} else {
 			if (state->cmd == MPD_CMD_CURRSONG) {
 				get_curr_song(state);
@@ -300,34 +401,54 @@ handle_mpd_event(struct wb_event * event, struct wb_context * ctx, void * data)
 			}
 		}
 	} 
+
 	/*
-	 * event from inotify
-	 * start mpd socket as response
+	 * event from inotify/timer
 	 */
 	else {
-		struct inotify_event ievent;
 		char buffp[512];
 		read(event->fd, buffp, sizeof(buffp));
-		start_socket(ctx, state);
+
+		/* 
+		 * always start socket on unix type socket
+		 * but check on tcp type socket as its fired
+		 * by timer
+		 */
+		if (setting->addr_type == MPD_ADDRESS_UNIX_SOCKET || !state->connected) {
+			start_socket(ctx, state);
+		} else {
+			return;
+		}
 	}
-
-
 
 	api->mod->trigger_update(ctx);
 }
 
+
 int get_mpd_fd(struct wb_context * ctx){
-	const struct mpd_setting * setting = mod.custom_style;
-	char dir_path[256];
-	strncpy(dir_path, setting->server_path, sizeof(dir_path));
+	struct mpd_setting * setting = mod.custom_style;
+	int fd;
 
-    int intfd = inotify_init1(IN_CLOEXEC);
-    if (inotify_add_watch(intfd, dirname(dir_path), IN_CREATE ) < 0)
-        ON_ERR("Inotify - mpd")
-    return intfd;
-}
+	LOG_INFO("socket type: %d\n", setting->addr_type);
+	if (setting->addr_type == MPD_ADDRESS_TCP_SOCKET) {
+		fd = timerfd_create(CLOCK_REALTIME, 0);
 
-void mpd_fd_init(struct wb_context * ctx){
-    
+		int it_val = setting->recon_itval;
+		struct itimerspec timer = {0};
+		timer.it_interval.tv_sec = it_val;
+		timer.it_value.tv_sec = it_val;
 
+		timerfd_settime(fd, 0, &timer, NULL);
+
+	} 
+	else {
+		char dir_path[256];
+		strncpy(dir_path, setting->unix_domain.path, sizeof(dir_path));
+
+    	fd = inotify_init1(IN_CLOEXEC);
+    	if (inotify_add_watch(fd, dirname(dir_path), IN_CREATE ) < 0)
+    	    ON_ERR("Inotify - mpd")
+	}
+
+	return fd;
 }
