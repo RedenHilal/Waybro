@@ -86,6 +86,8 @@ static int tl_wb_flags(int wevent){
 			events |= EPOLLET;
 	if (wevent & WB_EVENT_HUP)
 			events |= EPOLLHUP;
+	if (wevent & WB_EVENT_RDHUP)
+			events |= EPOLLRDHUP;
 
 #elif defined(A_KQUEUE)
 
@@ -105,6 +107,8 @@ int tl_poll_flags(void * data){
 			wevent |= WB_EVENT_WRITE;
 	if (event_mask & EPOLLHUP)
 			wevent |= WB_EVENT_HUP;
+	if (event_mask & EPOLLRDHUP)
+			wevent |= WB_EVENT_RDHUP;
 
 #elif defined(A_KQUEUE)
 	struct kevent * kev = data;
@@ -114,7 +118,7 @@ int tl_poll_flags(void * data){
 	if (event_mask == EVFILT_WRITE)
 			wevent |= WB_EVENT_WRITE;
 	if (kev->flags & EV_EOF)
-			wevent |= WB_EVENT_HUP;
+			wevent |= (WB_EVENT_HUP | WB_EVENT_RDHUP);
 #endif
 	return wevent;
 }

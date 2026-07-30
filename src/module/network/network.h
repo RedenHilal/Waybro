@@ -27,9 +27,10 @@ struct network_state {
 
 struct nl_state {
 	struct nl_sock * sock;
+	char wiphy_name[NL80211_WIPHY_NAME_MAXLEN];
 	int family;
 	int group;
-	int ifid;
+	uint32_t ifid;
 	int pipe;
 };
 

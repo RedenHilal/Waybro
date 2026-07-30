@@ -26,7 +26,8 @@ enum {
 	WB_EVENT_READ = 1 << 0,
 	WB_EVENT_WRITE = 1 << 1,
 	WB_EVENT_HUP = 1 << 2,
-	WB_EVENT_EDGE = 1 << 3
+	WB_EVENT_RDHUP = 1 << 3,
+	WB_EVENT_EDGE = 1 << 4
 };
 
 enum {

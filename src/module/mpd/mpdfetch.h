@@ -1,9 +1,18 @@
 #define MPD_SONG_MAX_LENGTH 256
 #define MPD_SONG_METADATA_LENGTH 64
 
+#define MPD_SK_PATH_MAX_LENGTH 256
+#define MPD_NODE_MAX_LENGTH 128
+#define MPD_PORT_MAX_LENGTH 16
+
 enum mpd_next_command {
 	MPD_CMD_IDLE,
 	MPD_CMD_CURRSONG
+};
+
+enum mpd_address_type {
+	MPD_ADDRESS_TCP_SOCKET,
+	MPD_ADDRESS_UNIX_SOCKET
 };
 
 struct mpd_info {
@@ -23,7 +32,18 @@ struct mpd_info {
 };
 
 struct mpd_setting {
-	char * server_path;
+	const char * server_addr;
+	int recon_itval;
+	int addr_type;
+	union {
+		struct {
+			char path[MPD_SK_PATH_MAX_LENGTH];
+		} unix_domain;
+		struct {
+			char addr[MPD_NODE_MAX_LENGTH];
+			char port[MPD_PORT_MAX_LENGTH];
+		} tcp;
+	};
 };
 
 struct metadata_table {
