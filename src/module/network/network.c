@@ -101,6 +101,9 @@ static struct nl_msg * forge_trigger_msg(int ifid, int cmd, int flag){
 	genlmsg_put(msg, NL_AUTO_PORT, NL_AUTO_SEQ,
 				state->nls->family, 0, flag,
 				cmd, 0);
+	if (ifid == 0) {
+		return msg;
+	}
 	if (nla_put_u32(msg, NL80211_ATTR_IFINDEX, ifid) < 0){
 		ON_ERR("trigger msg forge - nl module")
 	}
@@ -264,13 +267,19 @@ handle_interface(struct nl_msg * msg, void * data)
 
 	genlmsg_parse(nlh, 0, attrs, NL80211_ATTR_MAX, attr_policy);
 
-	if (attrs[NL80211_ATTR_CHANNEL_WIDTH]){
-			struct nl_msg * rmsg = forge_trigger_msg(state->nls->ifid,
-									NL80211_CMD_GET_STATION, NLM_F_DUMP);
-
+	if (attrs[NL80211_ATTR_IFINDEX]){
 			u8 bssid[ETH_ALEN];
 
+			memcpy(&state->nls->ifid, nla_data(attrs[NL80211_ATTR_IFINDEX]),
+							sizeof(uint32_t));
+
+			memcpy(state->nls->wiphy_name, nla_data(attrs[NL80211_ATTR_IFNAME]),
+							NL80211_WIPHY_NAME_MAXLEN);
+
 			memcpy(state->cns->bssid, nla_data(attrs[NL80211_ATTR_MAC]), ETH_ALEN);
+
+			struct nl_msg * rmsg = forge_trigger_msg(state->nls->ifid,
+									NL80211_CMD_GET_STATION, NLM_F_DUMP);
 
 			nla_put(rmsg, NL80211_ATTR_MAC,
 						ETH_ALEN,
@@ -350,6 +359,19 @@ int get_net_fd(struct wb_context * ctx){
 	return fd;
 }
 
+static const char *
+get_if_name(struct if_nameindex * arr_iface)
+{
+	while (arr_iface->if_index != 0) {
+		if (arr_iface->if_name[0] == 'w') {
+			return arr_iface->if_name;
+		}
+
+		arr_iface++;
+	}
+
+	return NULL;
+}
 
 void *
 net_set(struct wb_context * ctx)
@@ -360,15 +382,8 @@ net_set(struct wb_context * ctx)
 	state->cns = cns;
 
 	struct nl_msg * msg = NULL;
-
-	int ifid = if_nametoindex("wlp1s0");
-
-	if (!ifid){
-		ON_ERR("interface index - nl module")
-	}
-
-	nls->ifid = ifid;
-	msg = forge_trigger_msg(ifid, NL80211_CMD_GET_INTERFACE, NLM_F_DUMP);
+	
+	msg = forge_trigger_msg(0, NL80211_CMD_GET_INTERFACE, NLM_F_DUMP);
 	nl_send_auto(state->nls->sock, msg);
 
 	return state;
