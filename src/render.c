@@ -87,11 +87,11 @@ static void
 wb_widget_region_init(struct wb_context * ctx)
 {
 	struct wb_widget_interest_list * ilist = ctx->ilist;
-	int count = ilist->wf_count - 1;
+	int count = ilist->wf_count;
 
-	for (int i = count; i >= 0; i--){
+	for (int i = 0; i < count; i++){
 
-		struct wb_widget_listen_node * node = ilist->node[i];
+		struct wb_widget_listen_node * node = ilist->node[ilist->wf_index[i]];
 		if (node == NULL) {
 			continue;
 		}
@@ -102,7 +102,7 @@ wb_widget_region_init(struct wb_context * ctx)
 				.chars = "spc"
 		};
 
-		Clay_ElementId id = Clay_GetElementIdWithIndex(str_id, i);
+		Clay_ElementId id = Clay_GetElementIdWithIndex(str_id, node->id);
 		Clay_ElementData element = Clay_GetElementData(id);
 		Clay_BoundingBox bb = element.boundingBox;
 
@@ -133,21 +133,6 @@ wb_widget_print_widget(char * id, int index)
 
 }
 
-
-void 
-wb_widget_region_clean(struct wb_context * ctx)
-{
-	struct wb_style_main * msty = ctx->msty;
-	struct wl_region * region = wl_compositor_create_region(ctx->appstate->compositor);
-}
-
-void
-wb_widget_listen_clean(struct wb_context * ctx)
-{
-	struct wb_widget_interest_list * ilist = ctx->ilist;
-	ilist->ncount = 0;
-}
-
 /*
  * helper
  */
@@ -156,10 +141,6 @@ static int
 check_free_slot(int * frame_slot, int id)
 {
 	
-	if (id >= WB_WIDGET_INTEREST_SIZE || id < 0) {
-		return -1;
-	}
-
 	/*
 	 * frame slot is used
 	 */
@@ -182,7 +163,6 @@ wb_widget_listen_insert(struct wb_context * ctx, struct wb_widget_listen_node * 
 
 	ilist->frame_slot[id / WB_WIDGET_INT_BITS] |= (1 << (id & WB_WIDGET_INT_BITS));
 	ilist->wf_index[ilist->wf_count++] = id;
-
 
 	ilist->node[id] = node;
 
@@ -261,6 +241,8 @@ wb_widget_rect_special(struct wb_context * ctx, struct wb_widget_rect_special * 
 	struct wb_widget_border_width bw = data->border_width;
 	int radius = data->radius;
 
+	if (wb_widget_listen_insert(ctx, rect->event) < 0)
+		return -1;
 	Clay_Sizing sizing = {
 		.width = get_clay_size(data->sizing_width, data->width),
 		.height = get_clay_size(data->sizing_height, data->height)
@@ -293,8 +275,6 @@ wb_widget_rect_special(struct wb_context * ctx, struct wb_widget_rect_special * 
 			data->child_cb(ctx, data->data);
 	};
 
-	if (wb_widget_listen_insert(ctx, rect->event) < 0)
-		return -1;
 
 	return 0;
 }
