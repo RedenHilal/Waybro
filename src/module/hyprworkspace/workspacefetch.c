@@ -242,7 +242,6 @@ void * get_workspace_data(struct wb_context * ctx){
 	const struct wb_public_api * api = mod.api;
 
     char buffer[4096] = {0};
-    int available_ws = 0;
 
 	struct ws_data * state = malloc(sizeof(struct ws_data));
 	state->head = NULL;
@@ -263,7 +262,6 @@ void * get_workspace_data(struct wb_context * ctx){
 		node->widget_id = -1;
 
 		DL_INSERT_INORDER(state->head, node, insert_cmp);
-		available_ws++;
     }
 
     pclose(available_ws_fd);
