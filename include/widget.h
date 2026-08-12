@@ -216,12 +216,6 @@ void
 wb_layout_compute(struct wb_context * ctx);
 
 void
-wb_widget_region_clean(struct wb_context * ctx);
-
-void
-wb_widget_listen_clean(struct wb_context * ctx);
-
-void
 wb_widget_rect(struct wb_context * ctx, struct wb_widget_rect_basic * data);
 
 int
