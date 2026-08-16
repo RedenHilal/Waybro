@@ -9,7 +9,7 @@
 int 
 wb_widget_allocate_id(struct wb_context * ctx)
 {
-	static int curr_id = 0;
+	static int curr_id = 1;
 
 	if (ctx->ilist->ncount >= WB_WIDGET_INTEREST_SIZE) {
 		return -1;
@@ -29,6 +29,7 @@ wb_widget_allocate_id(struct wb_context * ctx)
 	if (ctx->ilist->fs_count > ctx->ilist->fs_index) {
 
 		int idx = ctx->ilist->fs[ctx->ilist->fs_index++];
+		ctx->ilist->fs_index %= WB_WIDGET_FREE_SLOT_SIZE;
 		ctx->ilist->node[idx] = node;
 		node->id = idx;
 		LOG_INFO("Reused Id: %d\n", idx);
@@ -68,6 +69,7 @@ wb_widget_free_id(struct wb_context * ctx, int id)
 	LOG_INFO("Freed Id: %d\n", id);
 	ctx->ilist->ncount--;
 	ctx->ilist->fs[ctx->ilist->fs_count++] = id;
+	ctx->ilist->fs_count %= WB_WIDGET_FREE_SLOT_SIZE;
 
 	free(ctx->ilist->node[id]);
 	ctx->ilist->node[id] = NULL;

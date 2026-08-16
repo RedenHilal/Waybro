@@ -429,7 +429,6 @@ int get_mpd_fd(struct wb_context * ctx){
 	struct mpd_setting * setting = mod.custom_style;
 	int fd;
 
-	LOG_INFO("socket type: %d\n", setting->addr_type);
 	if (setting->addr_type == MPD_ADDRESS_TCP_SOCKET) {
 		fd = timerfd_create(CLOCK_REALTIME, 0);
 

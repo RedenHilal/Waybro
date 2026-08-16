@@ -91,6 +91,17 @@ ws_node_render_text_cb(struct wb_context * ctx, void * data)
 	api->widget->text(ctx, &text);
 }
 
+static int
+allocate_widget_id(struct wb_context * ctx, struct ws_node * node)
+{
+	const struct wb_public_api * api = mod.api;
+	int id = api->widget->allocate_id(ctx);
+	api->widget->set_id(ctx, id, node,
+					WB_POINTER_HOVER | WB_POINTER_BUTTON, &ws_cb);
+
+	return id;
+}
+
 static void
 ws_node_render_cb(struct wb_context * ctx, void * data)
 {
@@ -101,12 +112,6 @@ ws_node_render_cb(struct wb_context * ctx, void * data)
 	struct ws_node * node = state->head;
 	struct wb_widget_rect_special rect;
 	while(node != NULL) {
-		if (node->widget_id < 0) {
-			node->widget_id = api->widget->allocate_id(ctx);
-			api->widget->set_id(ctx, node->widget_id, node,
-							WB_POINTER_HOVER | WB_POINTER_BUTTON, &ws_cb);
-		}
-
 		int event = api->widget->get_event(ctx, node->widget_id);
 		event &= ~WB_POINTER_BUTTON;
 
@@ -164,16 +169,14 @@ parse_line(const char * line, struct wb_context * ctx, struct ws_data * state)
 	if (strncmp(line, cmd_ws, strlen(cmd_ws)) == 0) {
 		int aws = atoi(line + strlen(cmd_ws));
 		state->a_ws = aws;
-		api->mod->trigger_update(ctx);
 	} else if (strncmp(line, cmd_create, strlen(cmd_create)) == 0) {
 		int cws = atoi(line + strlen(cmd_create));
 		struct ws_node * node = calloc(1, sizeof(struct ws_node));
-		node->widget_id = -1;
+		node->widget_id = allocate_widget_id(ctx, node);
 		node->ws_id = cws;
 		snprintf(node->text, 64, "%d", cws);
     	  
 		DL_INSERT_INORDER(state->head, node, insert_cmp);
-		api->mod->trigger_update(ctx);
 	} else if (strncmp(line, cmd_destroy, strlen(cmd_destroy)) == 0) {
 		int dws = atoi(line + strlen(cmd_destroy));
 		struct ws_node * del_node = NULL;
@@ -185,8 +188,11 @@ parse_line(const char * line, struct wb_context * ctx, struct ws_data * state)
 		api->widget->free_id(ctx, del_node->widget_id);
 		DL_DELETE(state->head, del_node);
 		free(del_node);
-		api->mod->trigger_update(ctx);
+	} else {
+		return;
 	}
+
+	api->mod->trigger_update(ctx);
 }
 
 void
@@ -259,7 +265,7 @@ void * get_workspace_data(struct wb_context * ctx){
 		struct ws_node * node = calloc(1, sizeof(struct ws_node));
 		node->ws_id = wsid;
 		snprintf(node->text, 64, "%d", wsid);
-		node->widget_id = -1;
+		node->widget_id = allocate_widget_id(ctx, node);
 
 		DL_INSERT_INORDER(state->head, node, insert_cmp);
     }

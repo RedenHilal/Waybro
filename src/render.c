@@ -145,6 +145,7 @@ check_free_slot(int * frame_slot, int id)
 	 * frame slot is used
 	 */
 	if (frame_slot[id / WB_WIDGET_INT_BITS] & (1 << (id % WB_WIDGET_INT_BITS))) {
+		LOG_INFO("Widget ID %d is already on frame\n", id);
 		return -1;
 	}
 
@@ -161,7 +162,7 @@ wb_widget_listen_insert(struct wb_context * ctx, struct wb_widget_listen_node * 
 		return -1;
 	}
 
-	ilist->frame_slot[id / WB_WIDGET_INT_BITS] |= (1 << (id & WB_WIDGET_INT_BITS));
+	ilist->frame_slot[id / WB_WIDGET_INT_BITS] |= (1 << (id % WB_WIDGET_INT_BITS));
 	ilist->wf_index[ilist->wf_count++] = id;
 
 	ilist->node[id] = node;
