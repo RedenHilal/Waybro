@@ -85,4 +85,10 @@ modules =
 		format="󰂯 {count}"
 		group="right"
 	}
+	temperature=
+	{
+		format=" {temperature}°"
+		interval=5
+		group="right"
+	}
 }
