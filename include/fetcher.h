@@ -7,7 +7,6 @@
 
 #define MEM_PATH "/proc/meminfo"
 
-#define TEMP_PATH "/sys/class/thermal/thermal_zone0/temp"
 
 // get fd(s)
 
