@@ -1,5 +1,7 @@
 # Waybro
+
 ![example of waybro bar](example.png)
+> Waybro with default default modul and config
 
 **Waybro** is a simple status bar designed for [Wayland](https://wayland.freedesktop.org/) compositors. This bar is made with module-based architecture, so you can create you own module using defined interface.
 
@@ -30,6 +32,7 @@
 - `gcc`
 - `libnl`
 - `libpulse`
+- `sdbus` and `sdbus-cpp`
 
 ### Build
 
